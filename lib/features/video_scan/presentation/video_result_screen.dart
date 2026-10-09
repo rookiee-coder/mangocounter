@@ -41,8 +41,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
       ripeCount: widget.result.ripeCount,
       unripeCount: widget.result.unripeCount,
       overRipeCount: widget.result.overRipeCount,
-      inferenceMs: widget.result.durationMs,
-      confThreshold: 0.18,
+      inferenceMs: widget.result.inferenceTimeMs,
+      confThreshold: widget.result.confThreshold,
     );
 
     Navigator.push(
@@ -73,7 +73,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
       String savedImagePath = widget.result.videoPath;
       if (curFrame != null) {
         final dir = await getApplicationDocumentsDirectory();
-        final imgPath = '${dir.path}/tree_scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final imgPath =
+            '${dir.path}/tree_scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
         await File(imgPath).writeAsBytes(curFrame.imageBytes);
         savedImagePath = imgPath;
       }
@@ -86,9 +87,9 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
         modelRipe: widget.result.ripeCount,
         modelUnripe: widget.result.unripeCount,
         modelHalfRipe: widget.result.overRipeCount,
-        confThreshold: 0.18,
-        iouThreshold: 0.22,
-        inferenceMs: widget.result.durationMs,
+        confThreshold: widget.result.confThreshold,
+        iouThreshold: widget.result.iouThreshold,
+        inferenceMs: widget.result.inferenceTimeMs,
         imageWidth: curFrame?.imageWidth ?? 640,
         imageHeight: curFrame?.imageHeight ?? 640,
         isDemo: false,
@@ -97,6 +98,7 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
       );
 
       await ref.read(historyProvider.notifier).addScan(record);
+      if (!mounted) return;
       setState(() => _isSaved = true);
 
       if (mounted) {
@@ -110,7 +112,9 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save record: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Failed to save record: $e'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -221,7 +225,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
             if (frames.length > 1)
               Container(
                 height: 70,
-                color: isDark ? const Color(0xFF101B14) : const Color(0xFFEBF6EE),
+                color:
+                    isDark ? const Color(0xFF101B14) : const Color(0xFFEBF6EE),
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
@@ -257,7 +262,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
                                 right: 0,
                                 child: Container(
                                   color: Colors.black.withOpacity(0.65),
-                                  padding: const EdgeInsets.symmetric(vertical: 1),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 1),
                                   child: Text(
                                     '${(frame.timestampMs / 1000).toStringAsFixed(1)}s',
                                     textAlign: TextAlign.center,
@@ -303,11 +309,15 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF101B14) : const Color(0xFFEBF6EE),
+                              color: isDark
+                                  ? const Color(0xFF101B14)
+                                  : const Color(0xFFEBF6EE),
                               borderRadius: AppShapes.leafCut,
-                              border: Border.all(color: primary.withOpacity(0.3)),
+                              border:
+                                  Border.all(color: primary.withOpacity(0.3)),
                             ),
                             child: Column(
                               children: [
@@ -321,7 +331,7 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'TREE YIELD',
+                                  'VISIBLE ESTIMATE',
                                   style: TextStyle(
                                     fontFamily: 'monospace',
                                     fontSize: 9,
@@ -340,16 +350,22 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    _buildPill('Ripe: ${widget.result.ripeCount}', amber),
+                                    _buildPill(
+                                        'Ripe: ${widget.result.ripeCount}',
+                                        amber),
                                     const SizedBox(width: 6),
-                                    _buildPill('Unripe: ${widget.result.unripeCount}', AppColors.unripeGreen),
+                                    _buildPill(
+                                        'Unripe: ${widget.result.unripeCount}',
+                                        AppColors.unripeGreen),
                                     const SizedBox(width: 6),
-                                    _buildPill('Over: ${widget.result.overRipeCount}', AppColors.overRipeEarth),
+                                    _buildPill(
+                                        'Over: ${widget.result.overRipeCount}',
+                                        AppColors.overRipeEarth),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Frame ${_selectedFrameIndex + 1}/${frames.length} · ${curFrame?.detections.length ?? 0} in view',
+                                  'Visible fruit estimate. Hidden or revisited fruit can affect the count.\nFrame ${_selectedFrameIndex + 1}/${frames.length} · ${curFrame?.detections.length ?? 0} in view',
                                   style: TextStyle(
                                     fontFamily: 'monospace',
                                     fontSize: 10,
@@ -367,15 +383,19 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
 
                       // Anti-Duplication & Telemetry Pill
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF14241B) : const Color(0xFFF3FAF5),
+                          color: isDark
+                              ? const Color(0xFF14241B)
+                              : const Color(0xFFF3FAF5),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: primary.withOpacity(0.2)),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.verified_outlined, size: 18, color: primary),
+                            Icon(Icons.verified_outlined,
+                                size: 18, color: primary),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
@@ -392,7 +412,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
                                   ),
                                   Text(
                                     'Removed ${widget.result.duplicateDetectionsFiltered} duplicate counts · Leaves and non-fruits filtered out',
-                                    style: TextStyle(fontSize: 11.5, color: text),
+                                    style:
+                                        TextStyle(fontSize: 11.5, color: text),
                                   ),
                                 ],
                               ),
@@ -417,7 +438,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
                           ],
                         ),
                         child: ElevatedButton.icon(
-                          icon: const Icon(Icons.psychology_alt_rounded, color: Colors.white, size: 20),
+                          icon: const Icon(Icons.psychology_alt_rounded,
+                              color: Colors.white, size: 20),
                           label: const Text(
                             'ASK HARVEST ASSISTANT ABOUT THIS TREE',
                             style: TextStyle(
@@ -457,7 +479,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }

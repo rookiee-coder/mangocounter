@@ -42,7 +42,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 'Camera access is required for real-time orchard canopy scanning. Please enable it in system settings.',
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel')),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(ctx);
@@ -62,8 +64,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final XFile? image = await _picker.pickImage(
       source: source,
-      maxWidth: AppConstants.modelMaxResolution.toDouble(),
-      maxHeight: AppConstants.modelMaxResolution.toDouble(),
+      maxWidth: ref.read(settingsProvider).maxResolution.toDouble(),
+      maxHeight: ref.read(settingsProvider).maxResolution.toDouble(),
       imageQuality: 95,
     );
     if (image != null && mounted) {
@@ -77,7 +79,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ResultScreen(imageBytes: bytes, originalPath: image.path),
+            builder: (_) =>
+                ResultScreen(imageBytes: bytes, originalPath: image.path),
           ),
         );
       }
@@ -97,7 +100,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 'Camera access is required for tree video scanning. Please enable it in system settings.',
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel')),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(ctx);
@@ -140,10 +145,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (scanState.isNonTreeVideo) {
           _showNonTreeSubjectDialog(
             detectedSubject: scanState.detectedSubject ?? 'Non-tree scene',
-            reason: scanState.nonTreeReason ?? 'The video does not depict a mango tree canopy.',
+            reason: scanState.nonTreeReason ??
+                'The video does not depict a mango tree canopy.',
             source: source,
           );
-        } else if (scanState.errorMessage != null && scanState.errorMessage!.isNotEmpty) {
+        } else if (scanState.errorMessage != null &&
+            scanState.errorMessage!.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(scanState.errorMessage!),
@@ -189,7 +196,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2.5),
                     decoration: BoxDecoration(
                       color: amber.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
@@ -232,10 +240,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E2620) : const Color(0xFFF4F7F5),
+                color:
+                    isDark ? const Color(0xFF1E2620) : const Color(0xFFF4F7F5),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark ? AppColors.darkOutline : const Color(0xFFE0E8E3),
+                  color:
+                      isDark ? AppColors.darkOutline : const Color(0xFFE0E8E3),
                 ),
               ),
               child: Column(
@@ -243,7 +253,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.visibility_outlined, size: 15, color: AppColors.mutedGraphite),
+                      Icon(Icons.visibility_outlined,
+                          size: 15, color: AppColors.mutedGraphite),
                       SizedBox(width: 6),
                       Text(
                         'Detected Subject:',
@@ -303,7 +314,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text(
               'Dismiss',
-              style: TextStyle(color: AppColors.mutedGraphite, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  color: AppColors.mutedGraphite, fontWeight: FontWeight.w600),
             ),
           ),
           ElevatedButton.icon(
@@ -311,13 +323,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Navigator.pop(ctx);
               _pickVideo(source);
             },
-            icon: Icon(source == ImageSource.camera ? Icons.videocam : Icons.video_library, size: 16),
-            label: Text(source == ImageSource.camera ? 'Record Again' : 'Select Video'),
+            icon: Icon(
+                source == ImageSource.camera
+                    ? Icons.videocam
+                    : Icons.video_library,
+                size: 16),
+            label: Text(
+                source == ImageSource.camera ? 'Record Again' : 'Select Video'),
             style: ElevatedButton.styleFrom(
               backgroundColor: primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
           ),
@@ -333,8 +351,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (ctx) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final surface = isDark ? AppColors.darkSurface : AppColors.surfaceWhite;
-        final primary = isDark ? AppColors.darkPrimaryMint : AppColors.primaryGreen;
-        final text = isDark ? AppColors.darkTextParchment : AppColors.charcoalText;
+        final primary =
+            isDark ? AppColors.darkPrimaryMint : AppColors.primaryGreen;
+        final text =
+            isDark ? AppColors.darkTextParchment : AppColors.charcoalText;
 
         return Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
@@ -359,7 +379,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 14),
               Text(
                 'Whole-Tree Video Scan',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: text),
+                style: TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold, color: text),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
@@ -378,8 +399,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   child: Icon(Icons.videocam_rounded, color: primary),
                 ),
-                title: Text('Record Video with Camera', style: TextStyle(fontWeight: FontWeight.bold, color: text)),
-                subtitle: const Text('Capture a 5–15 second sweep across the tree', style: TextStyle(fontSize: 12)),
+                title: Text('Record Video with Camera',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: text)),
+                subtitle: const Text(
+                    'Capture a 5–15 second sweep across the tree',
+                    style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickVideo(ImageSource.camera);
@@ -395,8 +419,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   child: Icon(Icons.video_library_rounded, color: primary),
                 ),
-                title: Text('Select Video from Gallery', style: TextStyle(fontWeight: FontWeight.bold, color: text)),
-                subtitle: const Text('Choose a pre-recorded canopy sweep video', style: TextStyle(fontSize: 12)),
+                title: Text('Select Video from Gallery',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: text)),
+                subtitle: const Text('Choose a pre-recorded canopy sweep video',
+                    style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickVideo(ImageSource.gallery);
@@ -430,7 +456,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: VideoAnalyzingView(
             progress: videoScanState.progress,
             statusStep: videoScanState.statusMessage,
-            onCancel: () => ref.read(videoScanControllerProvider.notifier).reset(),
+            onCancel: () =>
+                ref.read(videoScanControllerProvider.notifier).reset(),
           ),
         ),
       );
@@ -525,7 +552,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Demo Mode Warning Banner if model missing (preserving widget test string)
               if (isDemo)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFE0B2),
@@ -534,7 +562,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 22),
+                      Icon(Icons.warning_amber_rounded,
+                          color: Color(0xFFE65100), size: 22),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -553,12 +582,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Live Reticle Hardware Status Badge
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
                     color: surface,
                     borderRadius: AppShapes.pill,
                     border: Border.all(
-                      color: isDark ? AppColors.darkOutline : const Color(0x261F5D3F),
+                      color: isDark
+                          ? AppColors.darkOutline
+                          : const Color(0x261F5D3F),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -577,14 +609,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         decoration: BoxDecoration(
                           color: detectorAsync.isLoading
                               ? Colors.amber
-                              : (isDemo ? Colors.orange : const Color(0xFF2E7D32)),
+                              : (isDemo
+                                  ? Colors.orange
+                                  : const Color(0xFF2E7D32)),
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         detectorAsync.when(
-                          data: (_) => isDemo ? 'DEMO MODE active' : 'Ready to Scan',
+                          data: (_) =>
+                              isDemo ? 'DEMO MODE active' : 'Ready to Scan',
                           loading: () => 'Preparing Scanner...',
                           error: (e, _) => 'Scanner Error: $e',
                         ),
@@ -641,7 +676,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: primary.withOpacity(0.15),
                             borderRadius: AppShapes.pill,
@@ -689,7 +725,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: detectorAsync.isLoading ? null : () => _pickImage(ImageSource.camera),
+                  onTap: detectorAsync.isLoading
+                      ? null
+                      : () => _pickImage(ImageSource.camera),
                   borderRadius: AppShapes.leafCut,
                   child: Ink(
                     decoration: BoxDecoration(
@@ -703,7 +741,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 22, vertical: 20),
                     child: Row(
                       children: [
                         Container(
@@ -762,7 +801,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: detectorAsync.isLoading ? null : () => _pickImage(ImageSource.gallery),
+                  onTap: detectorAsync.isLoading
+                      ? null
+                      : () => _pickImage(ImageSource.gallery),
                   borderRadius: AppShapes.leafCut,
                   child: Container(
                     decoration: BoxDecoration(
@@ -773,7 +814,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         width: 1.5,
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
                     child: Row(
                       children: [
                         Container(
@@ -830,18 +872,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: detectorAsync.isLoading ? null : () => _showVideoSourceDialog(context),
+                  onTap: detectorAsync.isLoading
+                      ? null
+                      : () => _showVideoSourceDialog(context),
                   borderRadius: AppShapes.leafCut,
                   child: Container(
                     decoration: BoxDecoration(
                       color: surface,
                       borderRadius: AppShapes.leafCut,
                       border: Border.all(
-                        color: AppColors.ripeAmber.withOpacity(isDark ? 0.5 : 0.6),
+                        color:
+                            AppColors.ripeAmber.withOpacity(isDark ? 0.5 : 0.6),
                         width: 1.5,
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
                     child: Row(
                       children: [
                         Container(
@@ -874,7 +920,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: primary.withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(6),
@@ -936,7 +983,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       color: surface,
                       borderRadius: AppShapes.leafCut,
                       border: Border.all(
-                        color: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F),
+                        color: isDark
+                            ? AppColors.darkOutline
+                            : const Color(0x1F1F5D3F),
                       ),
                     ),
                     child: Column(
@@ -958,7 +1007,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             GestureDetector(
                               onTap: () => Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) => const HistoryScreen()),
                               ),
                               child: Row(
                                 children: [
@@ -970,7 +1020,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       color: primary,
                                     ),
                                   ),
-                                  Icon(Icons.arrow_forward_ios_rounded, size: 11, color: primary),
+                                  Icon(Icons.arrow_forward_ios_rounded,
+                                      size: 11, color: primary),
                                 ],
                               ),
                             ),
@@ -987,7 +1038,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 color: primary,
                               ),
                             ),
-                            Container(width: 1, height: 40, color: const Color(0x141F5D3F)),
+                            Container(
+                                width: 1,
+                                height: 40,
+                                color: const Color(0x141F5D3F)),
                             Expanded(
                               child: _buildMetricTile(
                                 label: 'TOTAL FRUIT',
@@ -996,7 +1050,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 color: amber,
                               ),
                             ),
-                            Container(width: 1, height: 40, color: const Color(0x141F5D3F)),
+                            Container(
+                                width: 1,
+                                height: 40,
+                                color: const Color(0x141F5D3F)),
                             Expanded(
                               child: _buildMetricTile(
                                 label: 'RIPE FRUIT %',
@@ -1051,7 +1108,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             color: primary.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(Icons.psychology_alt_rounded, color: primary, size: 20),
+                          child: Icon(Icons.psychology_alt_rounded,
+                              color: primary, size: 20),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -1090,7 +1148,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        icon: Icon(Icons.chat_bubble_outline_rounded, size: 16, color: primary),
+                        icon: Icon(Icons.chat_bubble_outline_rounded,
+                            size: 16, color: primary),
                         label: Text(
                           'ASK HARVEST ASSISTANT',
                           style: TextStyle(
@@ -1103,7 +1162,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: primary.withOpacity(0.4)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                         onPressed: () => Navigator.push(
@@ -1122,12 +1182,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF111E16) : const Color(0xFFF3EDE2),
+                  color: isDark
+                      ? const Color(0xFF111E16)
+                      : const Color(0xFFF3EDE2),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.tips_and_updates_outlined, color: amber, size: 22),
+                    Icon(Icons.tips_and_updates_outlined,
+                        color: amber, size: 22),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

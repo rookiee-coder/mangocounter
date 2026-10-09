@@ -66,6 +66,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   final TextEditingController _actualCountCtrl = TextEditingController();
   img.Image? _cachedOrientedImage;
+  bool _isSaving = false;
 
   img.Image? _getOrientedImage() {
     if (_cachedOrientedImage != null) return _cachedOrientedImage;
@@ -89,7 +90,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     _filteredDetections = [];
     _hasTriggeredAutoAi = false;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _runDetectionPipeline());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _runDetectionPipeline());
   }
 
   /// Runs YOLO for this image, then (when online) the AI verification pass.
@@ -102,7 +104,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     final result = ref.read(detectionControllerProvider).result;
     setState(() {
       _yoloReady = true;
-      _allDetections = result != null ? List<Detection>.from(result.detections) : [];
+      _allDetections =
+          result != null ? List<Detection>.from(result.detections) : [];
       _yoloOriginalDetections = List<Detection>.from(_allDetections);
       _updateFiltered();
     });
@@ -124,7 +127,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     if (_isAutoConfidence && manualConf == null) {
       final autoConf = AutoConfidenceCalculator.calculate(_allDetections);
       _confThreshold = autoConf;
-      _filteredDetections = AutoConfidenceCalculator.filterDetections(_allDetections, autoConf);
+      _filteredDetections =
+          AutoConfidenceCalculator.filterDetections(_allDetections, autoConf);
     } else {
       final conf = manualConf ?? _confThreshold;
       _confThreshold = conf;
@@ -169,15 +173,25 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       if (!result.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Online verification unavailable (showing standard scan results)'),
+            content: Text(
+                'Online verification unavailable (showing standard scan results)'),
             duration: Duration(seconds: 3),
           ),
         );
         return;
       }
 
+      // A response applies only to detections still present in the request
+      // snapshot. Manual deletions and class edits made while waiting win.
+      final unchanged = sentSnapshot.where(_allDetections.contains).toList();
+      bool sameBox(Detection a, Detection b) =>
+          a.x1 == b.x1 && a.y1 == b.y1 && a.x2 == b.x2 && a.y2 == b.y2;
       final addedByUser = _allDetections.where((d) => d.userEdited).toList();
-      final merged = List<Detection>.from(result.reconciledDetections);
+      final merged = result.reconciledDetections
+          .where((d) =>
+              unchanged.any((original) => sameBox(original, d)) &&
+              !addedByUser.any((edited) => sameBox(edited, d)))
+          .toList();
       for (final u in addedByUser) {
         if (!merged.contains(u)) merged.add(u);
       }
@@ -267,9 +281,12 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                     : 'AI: Not a Mango'),
               ],
             ),
-            content: Text(verdict.reason.isNotEmpty ? verdict.reason : 'AI inspection completed.'),
+            content: Text(verdict.reason.isNotEmpty
+                ? verdict.reason
+                : 'AI inspection completed.'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
             ],
           ),
         );
@@ -277,7 +294,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI verification failed: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('AI verification failed: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -318,7 +337,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               final key = ctrl.text.trim();
@@ -400,11 +420,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Icon(Icons.add_circle, color: AppColors.ripeAmber, size: 24),
+                        const Icon(Icons.add_circle,
+                            color: AppColors.ripeAmber, size: 24),
                         const SizedBox(width: 10),
                         const Text(
                           'Add Mango',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
                         IconButton(
@@ -434,7 +456,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                             children: [
                               const Text(
                                 'Box Size',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                               Slider(
                                 value: sizeMultiplier,
@@ -470,21 +493,28 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                       style: ElevatedButton.styleFrom(
+                      style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryGreen,
                         foregroundColor: Colors.white,
                         minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
                       icon: const Icon(Icons.add),
                       label: Text('Confirm ${selectedClass.displayName} Mango'),
                       onPressed: () {
-                        final finalW = (baseW * sizeMultiplier).clamp(15.0, imgW.toDouble());
-                        final finalH = (baseH * sizeMultiplier).clamp(15.0, imgH.toDouble());
-                        final double x1 = (imageX - finalW / 2).clamp(0.0, imgW.toDouble());
-                        final double y1 = (imageY - finalH / 2).clamp(0.0, imgH.toDouble());
-                        final double x2 = (x1 + finalW).clamp(0.0, imgW.toDouble());
-                        final double y2 = (y1 + finalH).clamp(0.0, imgH.toDouble());
+                        final finalW = (baseW * sizeMultiplier)
+                            .clamp(15.0, imgW.toDouble());
+                        final finalH = (baseH * sizeMultiplier)
+                            .clamp(15.0, imgH.toDouble());
+                        final double x1 =
+                            (imageX - finalW / 2).clamp(0.0, imgW.toDouble());
+                        final double y1 =
+                            (imageY - finalH / 2).clamp(0.0, imgH.toDouble());
+                        final double x2 =
+                            (x1 + finalW).clamp(0.0, imgW.toDouble());
+                        final double y2 =
+                            (y1 + finalH).clamp(0.0, imgH.toDouble());
 
                         final newDet = Detection(
                           x1: x1,
@@ -507,7 +537,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('🥭 Added ${selectedClass.displayName} mango! Total: ${_filteredDetections.length}'),
+                            content: Text(
+                                '🥭 Added ${selectedClass.displayName} mango! Total: ${_filteredDetections.length}'),
                             backgroundColor: AppColors.primaryGreen,
                           ),
                         );
@@ -544,14 +575,16 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ListTile(
                 leading: const Icon(Icons.auto_awesome, color: Colors.purple),
                 title: const Text('Verify ripeness with AI'),
-                subtitle: det.aiReason != null ? Text('AI: ${det.aiReason}') : null,
+                subtitle:
+                    det.aiReason != null ? Text('AI: ${det.aiReason}') : null,
                 onTap: () {
                   Navigator.pop(ctx);
                   _verifySingleWithAi(det);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.change_circle_outlined, color: AppColors.primaryGreen),
+                leading: const Icon(Icons.change_circle_outlined,
+                    color: AppColors.primaryGreen),
                 title: const Text('Change ripeness'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -569,7 +602,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                           child: const Text('Unripe (Developing)'),
                         ),
                         SimpleDialogOption(
-                          onPressed: () => _changeClass(det, MangoClass.over_ripe),
+                          onPressed: () =>
+                              _changeClass(det, MangoClass.over_ripe),
                           child: const Text('Over-ripe (Ground/Late)'),
                         ),
                       ],
@@ -578,8 +612,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.errorCrimson),
-                title: const Text('Remove fruit', style: TextStyle(color: AppColors.errorCrimson)),
+                leading: const Icon(Icons.delete_outline,
+                    color: AppColors.errorCrimson),
+                title: const Text('Remove fruit',
+                    style: TextStyle(color: AppColors.errorCrimson)),
                 onTap: () {
                   setState(() {
                     _allDetections.remove(det);
@@ -610,60 +646,82 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   Future<void> _save() async {
     final state = ref.read(detectionControllerProvider);
-    if (state.result == null) return;
+    if (state.result == null || _isSaving) return;
+    _isSaving = true;
+    try {
+      final id = const Uuid().v4();
+      final directory = await getApplicationDocumentsDirectory();
+      final savedPath = '${directory.path}/scan_$id.image';
+      await File(savedPath).writeAsBytes(widget.imageBytes, flush: true);
 
-    int? actualCount;
-    if (_actualCountCtrl.text.isNotEmpty) {
-      actualCount = int.tryParse(_actualCountCtrl.text);
-    }
+      int? actualCount;
+      if (_actualCountCtrl.text.isNotEmpty) {
+        actualCount = int.tryParse(_actualCountCtrl.text);
+      }
 
-    final overRipeCount = _filteredDetections.where((d) => d.mangoClass == MangoClass.over_ripe).length;
-    final ripeCount = _filteredDetections.where((d) => d.mangoClass == MangoClass.ripe).length;
-    final unripeCount = _filteredDetections.where((d) => d.mangoClass == MangoClass.unripe).length;
+      final overRipeCount = _filteredDetections
+          .where((d) => d.mangoClass == MangoClass.over_ripe)
+          .length;
+      final ripeCount = _filteredDetections
+          .where((d) => d.mangoClass == MangoClass.ripe)
+          .length;
+      final unripeCount = _filteredDetections
+          .where((d) => d.mangoClass == MangoClass.unripe)
+          .length;
 
-    final record = ScanRecord(
-      id: const Uuid().v4(),
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      imagePath: widget.originalPath,
-      imageWidth: state.result!.imageWidth,
-      imageHeight: state.result!.imageHeight,
-      modelHalfRipe: state.result!.overRipeCount,
-      modelRipe: state.result!.ripeCount,
-      modelUnripe: state.result!.unripeCount,
-      editedHalfRipe: overRipeCount,
-      editedRipe: ripeCount,
-      editedUnripe: unripeCount,
-      actualCount: actualCount,
-      confThreshold: _confThreshold,
-      iouThreshold: state.result!.iouThreshold,
-      inferenceMs: state.result!.inferenceTimeMs,
-      isDemo: ref.read(isDemoModeProvider),
-      detections: _filteredDetections,
-      modelDetections: state.result!.detections,
-    );
-
-    await ref.read(historyProvider.notifier).addScan(record);
-
-    if (actualCount != null) {
-      final yoloCount = state.result?.detections.length ?? 0;
-      final finalCount = _filteredDetections.length;
-      final imageId = widget.originalPath.split(Platform.pathSeparator).last;
-      await _appendEvaluationLog(
-        imageId: imageId,
-        yoloCount: yoloCount,
-        finalCount: finalCount,
+      final record = ScanRecord(
+        id: id,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        imagePath: savedPath,
+        imageWidth: state.result!.imageWidth,
+        imageHeight: state.result!.imageHeight,
+        modelHalfRipe: state.result!.overRipeCount,
+        modelRipe: state.result!.ripeCount,
+        modelUnripe: state.result!.unripeCount,
+        editedHalfRipe: overRipeCount,
+        editedRipe: ripeCount,
+        editedUnripe: unripeCount,
         actualCount: actualCount,
-        usedGemini: _aiCompleted,
+        confThreshold: _confThreshold,
+        iouThreshold: state.result!.iouThreshold,
+        inferenceMs: state.result!.inferenceTimeMs,
+        isDemo: ref.read(isDemoModeProvider),
+        detections: _filteredDetections,
+        modelDetections: state.result!.detections,
       );
-    }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Harvest scan saved to history! 💾'),
-          backgroundColor: AppColors.primaryGreen,
-        ),
-      );
+      await ref.read(historyProvider.notifier).addScan(record);
+
+      if (actualCount != null) {
+        final yoloCount = state.result?.detections.length ?? 0;
+        final finalCount = _filteredDetections.length;
+        final imageId = widget.originalPath.split(Platform.pathSeparator).last;
+        await _appendEvaluationLog(
+          imageId: imageId,
+          yoloCount: yoloCount,
+          finalCount: finalCount,
+          actualCount: actualCount,
+          usedGemini: _aiCompleted,
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Harvest scan saved to history! 💾'),
+            backgroundColor: AppColors.primaryGreen,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Could not save this scan. Please try again.')),
+        );
+      }
+    } finally {
+      _isSaving = false;
     }
   }
 
@@ -680,14 +738,17 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       final exists = await file.exists();
       final sink = file.openWrite(mode: FileMode.append);
       if (!exists) {
-        sink.writeln('timestamp,image_id,yolo_count,final_count,actual_count,used_gemini');
+        sink.writeln(
+            'timestamp,image_id,yolo_count,final_count,actual_count,used_gemini');
       }
       final now = DateTime.now().toIso8601String();
-      sink.writeln('$now,$imageId,$yoloCount,$finalCount,$actualCount,$usedGemini');
+      sink.writeln(
+          '$now,$imageId,$yoloCount,$finalCount,$actualCount,$usedGemini');
       await sink.flush();
       await sink.close();
       if (kDebugMode) {
-        debugPrint('[EvaluationLog] Appended record: image=$imageId, yolo=$yoloCount, final=$finalCount, actual=$actualCount, usedGemini=$usedGemini');
+        debugPrint(
+            '[EvaluationLog] Appended record: image=$imageId, yolo=$yoloCount, final=$finalCount, actual=$actualCount, usedGemini=$usedGemini');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -702,10 +763,17 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       imageBytes: widget.imageBytes,
       originalPath: widget.originalPath,
       totalCount: _filteredDetections.length,
-      ripeCount: _filteredDetections.where((d) => d.mangoClass == MangoClass.ripe).length,
-      unripeCount: _filteredDetections.where((d) => d.mangoClass == MangoClass.unripe).length,
-      overRipeCount: _filteredDetections.where((d) => d.mangoClass == MangoClass.over_ripe).length,
-      inferenceMs: ref.read(detectionControllerProvider).result?.inferenceTimeMs ?? 0,
+      ripeCount: _filteredDetections
+          .where((d) => d.mangoClass == MangoClass.ripe)
+          .length,
+      unripeCount: _filteredDetections
+          .where((d) => d.mangoClass == MangoClass.unripe)
+          .length,
+      overRipeCount: _filteredDetections
+          .where((d) => d.mangoClass == MangoClass.over_ripe)
+          .length,
+      inferenceMs:
+          ref.read(detectionControllerProvider).result?.inferenceTimeMs ?? 0,
       confThreshold: _confThreshold,
       aiVerifiedCount: _filteredDetections.where((d) => d.aiVerified).length,
       userEditedCount: _filteredDetections.where((d) => d.userEdited).length,
@@ -756,7 +824,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: AppColors.errorCrimson),
+                const Icon(Icons.error_outline,
+                    size: 48, color: AppColors.errorCrimson),
                 const SizedBox(height: 16),
                 Text(state.error!, textAlign: TextAlign.center),
                 const SizedBox(height: 24),
@@ -771,11 +840,18 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       );
     }
 
-    final int overRipeCount = _filteredDetections.where((d) => d.mangoClass == MangoClass.over_ripe).length;
-    final int ripeCount = _filteredDetections.where((d) => d.mangoClass == MangoClass.ripe).length;
-    final int unripeCount = _filteredDetections.where((d) => d.mangoClass == MangoClass.unripe).length;
+    final int overRipeCount = _filteredDetections
+        .where((d) => d.mangoClass == MangoClass.over_ripe)
+        .length;
+    final int ripeCount = _filteredDetections
+        .where((d) => d.mangoClass == MangoClass.ripe)
+        .length;
+    final int unripeCount = _filteredDetections
+        .where((d) => d.mangoClass == MangoClass.unripe)
+        .length;
     final int totalCount = _filteredDetections.length;
-    final int aiVerifiedCount = _filteredDetections.where((d) => d.aiVerified).length;
+    final int aiVerifiedCount =
+        _filteredDetections.where((d) => d.aiVerified).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -819,7 +895,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(_showAiVerified ? 'Switched to AI-checked results ✨' : 'Switched to standard scan results 🥭'),
+                    content: Text(_showAiVerified
+                        ? 'Switched to AI-checked results ✨'
+                        : 'Switched to standard scan results 🥭'),
                     duration: const Duration(seconds: 1),
                   ),
                 );
@@ -833,7 +911,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 child: SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: amber),
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: amber),
                 ),
               ),
             ),
@@ -864,23 +943,31 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               width: double.infinity,
               child: Row(
                 children: [
-                  const Icon(Icons.touch_app, color: Color(0xFFE65100), size: 20),
+                  const Icon(Icons.touch_app,
+                      color: Color(0xFFE65100), size: 20),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       'Tap any missed fruit on photo to mark it',
-                      style: TextStyle(color: Color(0xFF5D4037), fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(
+                          color: Color(0xFF5D4037),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12),
                     ),
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
                       backgroundColor: primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () => setState(() => _isAddMangoMode = false),
-                    child: const Text('DONE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: const Text('DONE',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -898,13 +985,17 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.purple),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.purple),
                   ),
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
                       _aiStatusMessage,
-                      style: const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: const TextStyle(
+                          color: Colors.purple,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -921,7 +1012,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               child: const Text(
                 'DEMO MODE: model not found. Results are NOT real.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFFBF360C), fontWeight: FontWeight.bold, fontSize: 11),
+                style: TextStyle(
+                    color: Color(0xFFBF360C),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11),
               ),
             ),
 
@@ -979,8 +1073,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     final parts = <String>[
       '$total verified: $ripe ripe, $unripe unripe, $overRipe over-ripe',
     ];
-    if (_aiNeedsReviewCount > 0) parts.add('$_aiNeedsReviewCount need review (?)');
-    if (_aiRemovedCount > 0) parts.add('$_aiRemovedCount non-mango${_aiRemovedCount == 1 ? '' : 'es'} filtered');
+    if (_aiNeedsReviewCount > 0) {
+      parts.add('$_aiNeedsReviewCount need review (?)');
+    }
+    if (_aiRemovedCount > 0) {
+      parts.add(
+          '$_aiRemovedCount non-mango${_aiRemovedCount == 1 ? '' : 'es'} filtered');
+    }
     return parts.join(' · ');
   }
 
@@ -1043,9 +1142,12 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             children: [
               // Large Total Count Dial
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF101B14) : const Color(0xFFEBF6EE),
+                  color: isDark
+                      ? const Color(0xFF101B14)
+                      : const Color(0xFFEBF6EE),
                   borderRadius: AppShapes.leafCut,
                   border: Border.all(
                     color: primary.withOpacity(0.3),
@@ -1123,18 +1225,22 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                         if (aiVerifiedCount > 0) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.purple.withOpacity(0.12),
                               borderRadius: AppShapes.pill,
-                              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                              border: Border.all(
+                                  color: Colors.purple.withOpacity(0.3)),
                             ),
                             child: Text(
                               '✨ $aiVerifiedCount AI Checked',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.purple.shade200 : Colors.purple.shade800,
+                                color: isDark
+                                    ? Colors.purple.shade200
+                                    : Colors.purple.shade800,
                               ),
                             ),
                           ),
@@ -1153,7 +1259,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF22162B) : const Color(0xFFF7F1FC),
+                color:
+                    isDark ? const Color(0xFF22162B) : const Color(0xFFF7F1FC),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: Colors.purple.withOpacity(0.25),
@@ -1161,7 +1268,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.auto_awesome, color: Colors.purple, size: 16),
+                  const Icon(Icons.auto_awesome,
+                      color: Colors.purple, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -1193,8 +1301,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: isDark
-                  ? const LinearGradient(colors: [Color(0xFF14241B), Color(0xFF172B20)])
-                  : const LinearGradient(colors: [Color(0xFFEBF6EE), Color(0xFFF3FAF5)]),
+                  ? const LinearGradient(
+                      colors: [Color(0xFF14241B), Color(0xFF172B20)])
+                  : const LinearGradient(
+                      colors: [Color(0xFFEBF6EE), Color(0xFFF3FAF5)]),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: primary.withOpacity(0.3)),
             ),
@@ -1203,7 +1313,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.psychology_alt_rounded, color: primary, size: 18),
+                    Icon(Icons.psychology_alt_rounded,
+                        color: primary, size: 18),
                     const SizedBox(width: 8),
                     Text(
                       'AI HARVEST ASSISTANT',
@@ -1222,9 +1333,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                         children: [
                           Text(
                             'Open Chat',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: primary),
+                            style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: primary),
                           ),
-                          Icon(Icons.arrow_forward_ios_rounded, size: 10, color: primary),
+                          Icon(Icons.arrow_forward_ios_rounded,
+                              size: 10, color: primary),
                         ],
                       ),
                     ),
@@ -1237,21 +1352,24 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   children: [
                     _buildFollowUpChip(
                       label: 'When to harvest?',
-                      question: 'Based on this tree scan with $total mangoes ($ripe ripe, $unripe green), when should I pick them?',
+                      question:
+                          'Based on this tree scan with $total mangoes ($ripe ripe, $unripe green), when should I pick them?',
                       primary: primary,
                       surface: surface,
                       text: text,
                     ),
                     _buildFollowUpChip(
                       label: 'Ripening forecast',
-                      question: 'How long will it take for the $unripe unripe mangoes to mature on the tree?',
+                      question:
+                          'How long will it take for the $unripe unripe mangoes to mature on the tree?',
                       primary: primary,
                       surface: surface,
                       text: text,
                     ),
                     _buildFollowUpChip(
                       label: 'Pest & disease check',
-                      question: 'What are the main pest and fruit fly risks for this fruit batch and how to prevent them?',
+                      question:
+                          'What are the main pest and fruit fly risks for this fruit batch and how to prevent them?',
                       primary: primary,
                       surface: surface,
                       text: text,
@@ -1277,17 +1395,22 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                     decoration: InputDecoration(
                       hintText: 'Actual hand count (optional)',
                       hintStyle: TextStyle(fontSize: 12, color: muted),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      prefixIcon: Icon(Icons.pin_outlined, size: 16, color: muted),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      prefixIcon:
+                          Icon(Icons.pin_outlined, size: 16, color: muted),
                     ),
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (val) {
                       final count = int.tryParse(val);
                       if (count != null && count > 0) {
                         final curState = ref.read(detectionControllerProvider);
-                        final yoloCount = curState.result?.detections.length ?? 0;
+                        final yoloCount =
+                            curState.result?.detections.length ?? 0;
                         final finalCount = _filteredDetections.length;
-                        final imageId = widget.originalPath.split(Platform.pathSeparator).last;
+                        final imageId = widget.originalPath
+                            .split(Platform.pathSeparator)
+                            .last;
                         _appendEvaluationLog(
                           imageId: imageId,
                           yoloCount: yoloCount,
@@ -1309,7 +1432,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               if (actualCount > 0) ...[
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: (total == actualCount)
                         ? const Color(0xFFE8F5E9)
@@ -1322,7 +1446,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                       fontFamily: 'monospace',
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: (total == actualCount) ? Colors.green.shade900 : Colors.deepOrange.shade900,
+                      color: (total == actualCount)
+                          ? Colors.green.shade900
+                          : Colors.deepOrange.shade900,
                     ),
                   ),
                 ),
@@ -1413,7 +1539,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 children: [
                   Text(
                     'Labels',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: text),
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600, color: text),
                   ),
                   const SizedBox(width: 4),
                   Switch(

@@ -92,14 +92,13 @@ class TreeCanopyValidator {
       );
     }
 
-    final hasNet = await checkInternet();
+    final effectiveKey = apiKey.trim().isNotEmpty
+        ? apiKey.trim()
+        : GeminiAssistantService.defaultApiKey;
+    final hasNet = effectiveKey.isNotEmpty && await checkInternet();
 
     // 1. Online AI Verification via Gemini Vision
     if (hasNet) {
-      final effectiveKey = apiKey.trim().isNotEmpty
-          ? apiKey.trim()
-          : GeminiAssistantService.defaultApiKey;
-
       if (effectiveKey.isNotEmpty) {
         try {
           final onlineResult = await _validateWithGemini(
@@ -112,7 +111,8 @@ class TreeCanopyValidator {
           }
         } catch (e) {
           if (kDebugMode) {
-            debugPrint('[TreeCanopyValidator] Primary model ($primaryModel) error: $e');
+            debugPrint(
+                '[TreeCanopyValidator] Primary model ($primaryModel) error: $e');
           }
           // Attempt fallback model
           if (primaryModel != fallbackModel) {
@@ -127,7 +127,8 @@ class TreeCanopyValidator {
               }
             } catch (fallbackError) {
               if (kDebugMode) {
-                debugPrint('[TreeCanopyValidator] Fallback model error: $fallbackError');
+                debugPrint(
+                    '[TreeCanopyValidator] Fallback model error: $fallbackError');
               }
             }
           }
@@ -152,9 +153,11 @@ class TreeCanopyValidator {
       if (decoded != null) {
         final oriented = img.bakeOrientation(decoded);
         final resized = oriented.width > 400 || oriented.height > 400
-            ? img.copyResize(oriented, width: 400, interpolation: img.Interpolation.linear)
+            ? img.copyResize(oriented,
+                width: 400, interpolation: img.Interpolation.linear)
             : oriented;
-        optimizedJpgBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 75));
+        optimizedJpgBytes =
+            Uint8List.fromList(img.encodeJpg(resized, quality: 75));
       }
     } catch (_) {}
 
@@ -226,21 +229,29 @@ CRITICAL RULES:
 
     if (response.statusCode != 200) {
       if (kDebugMode) {
-        debugPrint('[TreeCanopyValidator] Gemini HTTP ${response.statusCode}: ${response.body}');
+        debugPrint(
+            '[TreeCanopyValidator] Gemini HTTP ${response.statusCode}: ${response.body}');
       }
       return null;
     }
 
     final data = jsonDecode(response.body);
-    final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String? ?? '';
+    final text =
+        data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String? ??
+            '';
     if (text.isEmpty) return null;
 
     final parsed = jsonDecode(text) as Map<String, dynamic>;
-    final isMangoTree = parsed['is_mango_tree'] == true || parsed['is_mango_tree'] == 'true';
-    final detectedSubject = (parsed['detected_subject'] as String?)?.trim() ?? 'Unknown scene';
+    final isMangoTree =
+        parsed['is_mango_tree'] == true || parsed['is_mango_tree'] == 'true';
+    final detectedSubject =
+        (parsed['detected_subject'] as String?)?.trim() ?? 'Unknown scene';
     final reason = (parsed['reason'] as String?)?.trim() ??
-        (isMangoTree ? 'Mango tree canopy verified by AI.' : 'Non-tree scene detected.');
-    final confidence = (parsed['confidence'] as num?)?.toDouble() ?? (isMangoTree ? 0.95 : 0.90);
+        (isMangoTree
+            ? 'Mango tree canopy verified by AI.'
+            : 'Non-tree scene detected.');
+    final confidence = (parsed['confidence'] as num?)?.toDouble() ??
+        (isMangoTree ? 0.95 : 0.90);
 
     return CanopyValidationResult(
       isMangoTree: isMangoTree,
@@ -261,7 +272,8 @@ CRITICAL RULES:
         isOnline: false,
         confidence: 0.95,
         detectedSubject: 'Blank or Obstructed Frame',
-        reason: 'Camera view appears completely blank or obstructed (offline check).',
+        reason:
+            'Camera view appears completely blank or obstructed (offline check).',
         foliageRatio: stats.foliageRatio,
       );
     }
@@ -277,7 +289,8 @@ CRITICAL RULES:
         isOnline: false,
         confidence: 0.88,
         detectedSubject: 'Non-Canopy Subject',
-        reason: 'No tree foliage detected in camera view (only $percentage% vegetation found).',
+        reason:
+            'No tree foliage detected in camera view (only $percentage% vegetation found).',
         foliageRatio: stats.foliageRatio,
       );
     }
@@ -288,13 +301,15 @@ CRITICAL RULES:
       isOnline: false,
       confidence: 0.80,
       detectedSubject: 'Outdoor Foliage Canopy',
-      reason: 'Foliage canopy confirmed ($percentage% green chlorophyll tones).',
+      reason:
+          'Foliage canopy confirmed ($percentage% green chlorophyll tones).',
       foliageRatio: stats.foliageRatio,
     );
   }
 
   /// Computes green vegetation / chlorophyll ratio and detects monotone frames.
-  static ({double foliageRatio, bool isMonotoneBlank}) analyzeFoliageColor(Uint8List frameBytes) {
+  static ({double foliageRatio, bool isMonotoneBlank}) analyzeFoliageColor(
+      Uint8List frameBytes) {
     final decoded = img.decodeImage(frameBytes);
     if (decoded == null) {
       return (foliageRatio: 0.0, isMonotoneBlank: true);
@@ -330,7 +345,8 @@ CRITICAL RULES:
 
         // 1. Direct RGB dominance: Green is significantly higher than red and blue,
         // and above dark shadow floor (g >= 30)
-        final bool isGreenDominant = g >= 30 && g > (r * 1.05) && g > (b * 1.12);
+        final bool isGreenDominant =
+            g >= 30 && g > (r * 1.05) && g > (b * 1.12);
 
         // 2. HSV Hue range: Yellow-green to deep forest green leaves (Hue ~45° to ~165°)
         final num maxC = max(r, max(g, b));
@@ -357,9 +373,12 @@ CRITICAL RULES:
         ? (sumLuminanceSq / totalPixels) - (meanLum * meanLum)
         : 0.0;
 
-    final double foliageRatio = totalPixels > 0 ? (greenCanopyPixels / totalPixels) : 0.0;
+    final double foliageRatio =
+        totalPixels > 0 ? (greenCanopyPixels / totalPixels) : 0.0;
     // Check if frame is pure monotone (e.g. solid white ceiling, pitch black pocket, or flat blank wall with zero foliage)
-    final bool isMonotoneBlank = meanLum > 248.0 || meanLum < 12.0 || (foliageRatio < 0.03 && variance < 12.0);
+    final bool isMonotoneBlank = meanLum > 248.0 ||
+        meanLum < 12.0 ||
+        (foliageRatio < 0.03 && variance < 12.0);
 
     return (foliageRatio: foliageRatio, isMonotoneBlank: isMonotoneBlank);
   }

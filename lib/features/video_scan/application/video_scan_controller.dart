@@ -4,6 +4,7 @@ import '../domain/video_scan_result.dart';
 import '../data/video_scanner_service.dart';
 
 import '../data/tree_canopy_validator.dart';
+import '../../settings/application/settings_controller.dart';
 
 class VideoScanState {
   final bool isScanning;
@@ -55,13 +56,15 @@ class VideoScanController extends StateNotifier<VideoScanState> {
   VideoScanController(this.ref) : super(const VideoScanState());
 
   Future<VideoScanResult?> scanVideo(String videoPath, {String? apiKey}) async {
+    if (state.isScanning) return null;
     final detectorAsync = ref.read(detectorProvider);
     final detector = detectorAsync.value;
 
     if (detector == null) {
       state = state.copyWith(
         isScanning: false,
-        errorMessage: 'Scanner is still preparing, please try again in a moment.',
+        errorMessage:
+            'Scanner is still preparing, please try again in a moment.',
         isNonTreeVideo: false,
       );
       return null;
@@ -75,10 +78,15 @@ class VideoScanController extends StateNotifier<VideoScanState> {
 
     try {
       final service = VideoScannerService(detector);
+      final settings = ref.read(settingsProvider);
       final result = await service.processVideo(
         videoPath: videoPath,
         apiKey: apiKey,
+        confThreshold: settings.confThreshold,
+        iouThreshold: settings.iouThreshold,
+        enableTiling: settings.tiledInference,
         onProgress: (progress, status) {
+          if (!mounted) return;
           state = state.copyWith(
             progress: progress,
             statusMessage: status,
@@ -86,6 +94,7 @@ class VideoScanController extends StateNotifier<VideoScanState> {
         },
       );
 
+      if (!mounted) return null;
       state = state.copyWith(
         isScanning: false,
         progress: 1.0,
@@ -95,6 +104,7 @@ class VideoScanController extends StateNotifier<VideoScanState> {
 
       return result;
     } on InvalidTreeVideoException catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         isScanning: false,
         errorMessage: e.reason,
@@ -104,6 +114,7 @@ class VideoScanController extends StateNotifier<VideoScanState> {
       );
       return null;
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         isScanning: false,
         errorMessage: e.toString(),

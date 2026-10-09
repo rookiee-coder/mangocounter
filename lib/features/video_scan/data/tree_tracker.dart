@@ -62,8 +62,10 @@ class TreeTracker {
     int imageWidth,
     int imageHeight,
   ) {
-    final double width = (det.x2 - det.x1).abs();
-    final double height = (det.y2 - det.y1).abs();
+    if (![det.x1, det.y1, det.x2, det.y2, det.confidence]
+        .every((value) => value.isFinite)) return false;
+    final double width = det.x2 - det.x1;
+    final double height = det.y2 - det.y1;
 
     if (width <= 0 || height <= 0) return false;
 
@@ -78,7 +80,7 @@ class TreeTracker {
     final double frameArea = (imageWidth * imageHeight).toDouble();
     if (frameArea > 0) {
       final double areaRatio = boxArea / frameArea;
-      if (areaRatio > 0.65 || areaRatio < 0.0004) {
+      if (areaRatio > 0.65 || width < 2 || height < 2) {
         return false; // Extreme oversized artifacts or tiny sub-pixel noise
       }
     }
@@ -190,6 +192,8 @@ class TreeTracker {
           lastFrameIndex: frameIndex,
         );
         _activeTracks.add(newTrack);
+        // A track observed in this frame has not missed this frame.
+        matchedTrackIndices.add(_activeTracks.length - 1);
 
         trackedFrameDetections.add(det);
       }
@@ -239,7 +243,8 @@ class TreeTracker {
     for (final track in _activeTracks) {
       if (track.hitCount >= effectiveMinHits) {
         // Prevent duplicate IDs
-        final alreadyAdded = _confirmedTracks.any((t) => t.trackId == track.trackId);
+        final alreadyAdded =
+            _confirmedTracks.any((t) => t.trackId == track.trackId);
         if (!alreadyAdded) {
           _confirmedTracks.add(
             TrackedMango(

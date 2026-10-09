@@ -38,11 +38,13 @@ class ChatState {
 
 class ChatController extends StateNotifier<ChatState> {
   final Ref ref;
+  int _sessionId = 0;
 
   ChatController(this.ref) : super(const ChatState());
 
   /// Sets up a new chat session, optionally bound to an optical scan result.
   void initSession({ScanChatContext? scanContext, String? initialQuestion}) {
+    _sessionId++;
     final List<ChatMessage> initialMessages = [];
     final List<String> initialSuggestions = [];
 
@@ -71,7 +73,8 @@ class ChatController extends StateNotifier<ChatState> {
         buffer.writeln('• **Over-Ripe:** $over past peak maturity');
       }
       buffer.writeln('');
-      buffer.writeln('Ask me anything about harvest scheduling, ripening stages, fruit protection, or tree health! Tap a prompt below or type your question:');
+      buffer.writeln(
+          'Ask me anything about harvest scheduling, ripening stages, fruit protection, or tree health! Tap a prompt below or type your question:');
 
       initialMessages.add(
         ChatMessage(
@@ -94,7 +97,8 @@ class ChatController extends StateNotifier<ChatState> {
         ChatMessage(
           id: 'welcome-general',
           role: ChatRole.assistant,
-          text: '👋 Hello! I am your **MangoCount AI Agronomist**.\n\nAsk me anything about mango cultivation, variety characteristics, flowering induction, pest management, or harvest timing. How can I assist your orchard today?',
+          text:
+              '👋 Hello! I am your **MangoCount AI Agronomist**.\n\nAsk me anything about mango cultivation, variety characteristics, flowering induction, pest management, or harvest timing. How can I assist your orchard today?',
           timestamp: DateTime.now(),
           suggestedPrompts: initialSuggestions,
         ),
@@ -116,7 +120,8 @@ class ChatController extends StateNotifier<ChatState> {
   /// Sends a user question and gets the agronomist response.
   Future<void> sendMessage(String text) async {
     final query = text.trim();
-    if (query.isEmpty) return;
+    if (query.isEmpty || state.isLoading) return;
+    final sessionId = _sessionId;
 
     final userMsg = ChatMessage(
       id: 'user-${DateTime.now().millisecondsSinceEpoch}',
@@ -142,6 +147,7 @@ class ChatController extends StateNotifier<ChatState> {
         scanContext: state.scanContext,
         apiKey: settings.geminiApiKey,
       );
+      if (!mounted || sessionId != _sessionId) return;
 
       state = state.copyWith(
         messages: [...updatedMessages, assistantMsg],
@@ -149,10 +155,12 @@ class ChatController extends StateNotifier<ChatState> {
         suggestedPrompts: assistantMsg.suggestedPrompts,
       );
     } catch (e) {
+      if (!mounted || sessionId != _sessionId) return;
       final errorMsg = ChatMessage(
         id: 'error-${DateTime.now().millisecondsSinceEpoch}',
         role: ChatRole.assistant,
-        text: '⚠️ I encountered an unexpected error processing your inquiry: $e. Please verify network connectivity or check your Gemini API key in Settings.',
+        text:
+            '⚠️ I encountered an unexpected error processing your inquiry: $e. Please verify network connectivity or check your Gemini API key in Settings.',
         timestamp: DateTime.now(),
         isError: true,
       );
@@ -170,6 +178,7 @@ class ChatController extends StateNotifier<ChatState> {
   }
 }
 
-final chatControllerProvider = StateNotifierProvider<ChatController, ChatState>((ref) {
+final chatControllerProvider =
+    StateNotifierProvider<ChatController, ChatState>((ref) {
   return ChatController(ref);
 });

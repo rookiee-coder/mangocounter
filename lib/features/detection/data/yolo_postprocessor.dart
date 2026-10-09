@@ -45,6 +45,8 @@ class YoloPostprocessor {
     double quantScale = 1.0,
     int quantZeroPoint = 0,
     bool classAgnostic = true,
+    bool nmsIncluded = false,
+    bool? boxesNormalized,
   }) {
     return _processTask({
       'output': outputTensor,
@@ -60,6 +62,8 @@ class YoloPostprocessor {
       'quantScale': quantScale,
       'quantZeroPoint': quantZeroPoint,
       'classAgnostic': classAgnostic,
+      'nmsIncluded': nmsIncluded,
+      'boxesNormalized': boxesNormalized,
     });
   }
 
@@ -77,6 +81,13 @@ class YoloPostprocessor {
     final double quantScale = args['quantScale'] ?? 1.0;
     final int quantZeroPoint = args['quantZeroPoint'] ?? 0;
     final bool classAgnostic = args['classAgnostic'] ?? true;
+    final bool nmsIncluded = args['nmsIncluded'] ?? false;
+    if (!scale.isFinite ||
+        scale <= 0 ||
+        originalWidth <= 0 ||
+        originalHeight <= 0) {
+      throw ArgumentError('Invalid image geometry');
+    }
 
     if (output.isEmpty) return [];
 
@@ -86,13 +97,29 @@ class YoloPostprocessor {
     int rows, cols;
     rows = tensor.length;
     cols = tensor[0].length;
-    bool isChannelsFirst = rows < cols;
-    
+    bool isChannelsFirst =
+        rows >= 5 && rows <= 7 && !(cols >= 5 && cols <= 7 && rows > cols);
+
     // Check for NMS-included export [1, N, 6] where N is small (e.g. <= 300)
     // and format is x1, y1, x2, y2, score, class
-    if (cols == 6 && rows < 1000) {
+    if (nmsIncluded) {
+      if (cols != 6) throw ArgumentError('NMS output must have six columns');
+      final dequantized = tensor
+          .map((row) => (row as List)
+              .map((v) => isQuantized
+                  ? ((v as num) - quantZeroPoint) * quantScale
+                  : (v as num).toDouble())
+              .toList())
+          .toList();
       // Assume already post-processed by the model
-      return _parseNmsIncluded(tensor, confThreshold, scale, padX, padY, originalWidth, originalHeight, modelInputSize);
+      return _parseNmsIncluded(dequantized, confThreshold, scale, padX, padY,
+          originalWidth, originalHeight, modelInputSize);
+    }
+    final channels = isChannelsFirst ? rows : cols;
+    if (channels < 5 ||
+        channels > 7 ||
+        tensor.any((row) => row.length != cols)) {
+      throw ArgumentError('Unsupported raw YOLO output shape');
     }
 
     double dq(dynamic val) {
@@ -107,20 +134,20 @@ class YoloPostprocessor {
     if (isChannelsFirst) {
       for (int i = 0; i < 4; i++) {
         for (int j = 0; j < cols; j++) {
-           maxBoxVal = max(maxBoxVal, dq(tensor[i][j]));
+          maxBoxVal = max(maxBoxVal, dq(tensor[i][j]));
         }
       }
     } else {
-       for (int i = 0; i < rows; i++) {
-          for (int j = 0; j < 4; j++) {
-             maxBoxVal = max(maxBoxVal, dq(tensor[i][j]));
-          }
-       }
+      for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < 4; j++) {
+          maxBoxVal = max(maxBoxVal, dq(tensor[i][j]));
+        }
+      }
     }
     // If it's pixel coordinates, maxBoxVal will be close to modelInputSize (e.g. 640).
     // If it's normalized, maxBoxVal is usually 1.0, but untrained models might output
     // stray boxes with w=2.0 or 5.0. So 20.0 is a safe threshold.
-    final bool isNormalized = maxBoxVal <= 20.0;
+    final bool isNormalized = args['boxesNormalized'] ?? (maxBoxVal <= 2.0);
 
     List<Detection> rawDetections = [];
     final int numBoxes = isChannelsFirst ? cols : rows;
@@ -129,8 +156,8 @@ class YoloPostprocessor {
     for (int i = 0; i < numBoxes; i++) {
       double cx = dq(isChannelsFirst ? tensor[0][i] : tensor[i][0]);
       double cy = dq(isChannelsFirst ? tensor[1][i] : tensor[i][1]);
-      double w  = dq(isChannelsFirst ? tensor[2][i] : tensor[i][2]);
-      double h  = dq(isChannelsFirst ? tensor[3][i] : tensor[i][3]);
+      double w = dq(isChannelsFirst ? tensor[2][i] : tensor[i][2]);
+      double h = dq(isChannelsFirst ? tensor[3][i] : tensor[i][3]);
 
       final int numClasses = max(1, (isChannelsFirst ? rows : cols) - 4);
       int classIndex = 0;
@@ -141,7 +168,8 @@ class YoloPostprocessor {
         classIndex = 0;
       } else {
         for (int c = 0; c < numClasses; c++) {
-          final double p = dq(isChannelsFirst ? tensor[4 + c][i] : tensor[i][4 + c]);
+          final double p =
+              dq(isChannelsFirst ? tensor[4 + c][i] : tensor[i][4 + c]);
           if (p > confidence) {
             confidence = p;
             classIndex = c;
@@ -153,6 +181,10 @@ class YoloPostprocessor {
         globalMaxConf = confidence;
       }
       if (confidence < confThreshold) continue;
+      if (![cx, cy, w, h, confidence].every((v) => v.isFinite) ||
+          w <= 0 ||
+          h <= 0 ||
+          confidence > 1) continue;
 
       if (isNormalized) {
         cx *= modelInputSize;
@@ -180,24 +212,6 @@ class YoloPostprocessor {
       y2 = y2.clamp(0, originalHeight.toDouble());
 
       if (x2 > x1 && y2 > y1) {
-        final bw = x2 - x1;
-        final bh = y2 - y1;
-
-        // Geometric sanity check for low-confidence candidates (< 0.45):
-        // 1. Extreme aspect ratio: Mangoes are oval hanging fruits. A wide, flat box (width > 2.0 * height)
-        //    or extremely thin needle (height > 3.5 * width) with low confidence is ground, horizon, or twig noise.
-        // 2. Giant background hallucination: A box covering > 10% of the total image area with low confidence
-        //    is an FPN P5 scale background artifact (real close-up mangoes have high confidence >= 0.70).
-        if (confidence < 0.45) {
-          final isAnomalousFlat = bw > bh * 2.0;
-          final isAnomalousNeedle = bh > bw * 3.5;
-          final totalImageArea = originalWidth * originalHeight;
-          final isAnomalousGiant = totalImageArea > 0 && ((bw * bh) / totalImageArea) > 0.10;
-          if (isAnomalousFlat || isAnomalousNeedle || isAnomalousGiant) {
-            continue;
-          }
-        }
-
         rawDetections.add(Detection(
           x1: x1,
           y1: y1,
@@ -213,60 +227,61 @@ class YoloPostprocessor {
   }
 
   static List<Detection> _parseNmsIncluded(
-    List<dynamic> tensor, 
-    double confThreshold,
-    double scale,
-    int padX,
-    int padY,
-    int originalWidth,
-    int originalHeight,
-    int modelInputSize
-  ) {
+      List<dynamic> tensor,
+      double confThreshold,
+      double scale,
+      int padX,
+      int padY,
+      int originalWidth,
+      int originalHeight,
+      int modelInputSize) {
     List<Detection> list = [];
     bool isNormalized = false;
     double maxBoxVal = 0;
     for (int i = 0; i < tensor.length; i++) {
-        for (int j = 0; j < 4; j++) {
-            maxBoxVal = max(maxBoxVal, (tensor[i][j] as num).toDouble());
-        }
+      for (int j = 0; j < 4; j++) {
+        maxBoxVal = max(maxBoxVal, (tensor[i][j] as num).toDouble());
+      }
     }
     isNormalized = maxBoxVal <= 1.5;
 
     for (int i = 0; i < tensor.length; i++) {
-       double x1 = (tensor[i][0] as num).toDouble();
-       double y1 = (tensor[i][1] as num).toDouble();
-       double x2 = (tensor[i][2] as num).toDouble();
-       double y2 = (tensor[i][3] as num).toDouble();
-       double score = (tensor[i][4] as num).toDouble();
-       int classIndex = (tensor[i][5] as num).toInt();
+      double x1 = (tensor[i][0] as num).toDouble();
+      double y1 = (tensor[i][1] as num).toDouble();
+      double x2 = (tensor[i][2] as num).toDouble();
+      double y2 = (tensor[i][3] as num).toDouble();
+      double score = (tensor[i][4] as num).toDouble();
+      int classIndex = (tensor[i][5] as num).toInt();
 
-       if (score < confThreshold) continue;
+      if (score < confThreshold) continue;
 
-       if (isNormalized) {
-           x1 *= modelInputSize;
-           y1 *= modelInputSize;
-           x2 *= modelInputSize;
-           y2 *= modelInputSize;
-       }
+      if (isNormalized) {
+        x1 *= modelInputSize;
+        y1 *= modelInputSize;
+        x2 *= modelInputSize;
+        y2 *= modelInputSize;
+      }
 
-       // Map back
-       x1 = (x1 - padX) / scale;
-       y1 = (y1 - padY) / scale;
-       x2 = (x2 - padX) / scale;
-       y2 = (y2 - padY) / scale;
+      // Map back
+      x1 = (x1 - padX) / scale;
+      y1 = (y1 - padY) / scale;
+      x2 = (x2 - padX) / scale;
+      y2 = (y2 - padY) / scale;
 
-       x1 = x1.clamp(0, originalWidth.toDouble());
-       y1 = y1.clamp(0, originalHeight.toDouble());
-       x2 = x2.clamp(0, originalWidth.toDouble());
-       y2 = y2.clamp(0, originalHeight.toDouble());
+      x1 = x1.clamp(0, originalWidth.toDouble());
+      y1 = y1.clamp(0, originalHeight.toDouble());
+      x2 = x2.clamp(0, originalWidth.toDouble());
+      y2 = y2.clamp(0, originalHeight.toDouble());
 
-       if (x2 > x1 && y2 > y1) {
-           list.add(Detection(
-             x1: x1, y1: y1, x2: x2, y2: y2,
-             mangoClass: MangoClass.fromIndex(classIndex),
-             confidence: score
-           ));
-       }
+      if (x2 > x1 && y2 > y1) {
+        list.add(Detection(
+            x1: x1,
+            y1: y1,
+            x2: x2,
+            y2: y2,
+            mangoClass: MangoClass.fromIndex(classIndex),
+            confidence: score));
+      }
     }
     return list;
   }
@@ -285,9 +300,10 @@ class YoloPostprocessor {
     double iouThreshold, {
     bool classAgnostic = true,
   }) {
-    boxes.sort((a, b) => b.confidence.compareTo(a.confidence));
+    boxes = List<Detection>.of(boxes)
+      ..sort((a, b) => b.confidence.compareTo(a.confidence));
     List<Detection> result = [];
-    
+
     for (int i = 0; i < boxes.length; i++) {
       bool keep = true;
       for (int j = 0; j < result.length; j++) {

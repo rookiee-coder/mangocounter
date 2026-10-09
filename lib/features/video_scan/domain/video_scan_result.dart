@@ -13,6 +13,9 @@ class VideoScanResult {
   final int durationMs;
   final int processedFramesCount;
   final int totalRawDetections;
+  final double confThreshold;
+  final double iouThreshold;
+  final int inferenceTimeMs;
 
   const VideoScanResult({
     required this.videoPath,
@@ -25,6 +28,9 @@ class VideoScanResult {
     required this.durationMs,
     required this.processedFramesCount,
     required this.totalRawDetections,
+    this.confThreshold = 0.18,
+    this.iouThreshold = 0.45,
+    this.inferenceTimeMs = 0,
   });
 
   int get duplicateDetectionsFiltered =>
@@ -36,6 +42,9 @@ class VideoScanResult {
     required List<TrackedMango> trackedMangoes,
     required int durationMs,
     required int totalRawDetections,
+    double confThreshold = 0.18,
+    double iouThreshold = 0.45,
+    int inferenceTimeMs = 0,
   }) {
     int ripe = 0;
     int unripe = 0;
@@ -66,6 +75,9 @@ class VideoScanResult {
       durationMs: durationMs,
       processedFramesCount: frames.length,
       totalRawDetections: totalRawDetections,
+      confThreshold: confThreshold,
+      iouThreshold: iouThreshold,
+      inferenceTimeMs: inferenceTimeMs,
     );
   }
 }
