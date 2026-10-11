@@ -51,7 +51,8 @@ void main() {
       expect(result.detectedSubject, contains('Non-Canopy'));
     });
 
-    test('Accepts foliage canopy image with chlorophyll-dominant green tones', () {
+    test('Accepts foliage canopy image with chlorophyll-dominant green tones',
+        () {
       final image = img.Image(width: 100, height: 100);
       for (int y = 0; y < 100; y++) {
         for (int x = 0; x < 100; x++) {
@@ -70,7 +71,9 @@ void main() {
 
   group('TreeCanopyValidator Online Gemini AI Gatekeeper', () {
     test('Online Gemini rejects indoor office nonsense video', () async {
+      late http.Request observedRequest;
       final mockClient = MockClient((request) async {
+        observedRequest = request;
         final mockJsonResponse = {
           "candidates": [
             {
@@ -81,7 +84,8 @@ void main() {
                       "is_mango_tree": false,
                       "confidence": 0.98,
                       "detected_subject": "Indoor Office Desk",
-                      "reason": "Subject is a computer keyboard and indoor office desk."
+                      "reason":
+                          "Subject is a computer keyboard and indoor office desk."
                     })
                   }
                 ]
@@ -108,6 +112,12 @@ void main() {
       expect(result.isOnline, isTrue);
       expect(result.detectedSubject, equals('Indoor Office Desk'));
       expect(result.reason, contains('office desk'));
+      final requestBody =
+          jsonDecode(observedRequest.body) as Map<String, dynamic>;
+      expect(observedRequest.url.queryParameters.containsKey('key'), isFalse);
+      expect(observedRequest.headers['x-goog-api-key'], 'test-key');
+      expect(requestBody['generationConfig'], contains('responseFormat'));
+      expect(requestBody['generationConfig'], isNot(contains('temperature')));
     });
 
     test('Online Gemini accepts mango tree canopy video', () async {
@@ -122,7 +132,8 @@ void main() {
                       "is_mango_tree": true,
                       "confidence": 0.96,
                       "detected_subject": "Mango Tree Canopy",
-                      "reason": "Confirmed outdoor mango tree branches and foliage canopy."
+                      "reason":
+                          "Confirmed outdoor mango tree branches and foliage canopy."
                     })
                   }
                 ]
@@ -151,7 +162,8 @@ void main() {
       expect(result.confidence, equals(0.96));
     });
 
-    test('Online Gemini network failure falls back gracefully to offline check', () async {
+    test('Online Gemini network failure falls back gracefully to offline check',
+        () async {
       final mockClient = MockClient((request) async {
         return http.Response('Server error', 500);
       });
@@ -191,7 +203,8 @@ void main() {
       expect(exception.isOnline, isTrue);
     });
 
-    test('Empty image bytes returns non-mango tree validation result', () async {
+    test('Empty image bytes returns non-mango tree validation result',
+        () async {
       const validator = TreeCanopyValidator();
       final result = await validator.validateCanopy(Uint8List(0));
       expect(result.isMangoTree, isFalse);

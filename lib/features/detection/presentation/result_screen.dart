@@ -172,10 +172,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
       if (!result.success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+          SnackBar(
+            content: Text(result.errorMessage ??
                 'Online verification unavailable (showing standard scan results)'),
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
         return;
@@ -208,8 +208,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         _updateFiltered();
       });
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AI] Exception during verification: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('AI verification failed: $e')),
+        );
       }
     } finally {
       if (mounted) {
@@ -236,20 +238,17 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     });
 
     try {
-      final oriented = _getOrientedImage();
-      if (oriented == null) throw Exception('Could not decode image for crop');
-
-      final x = det.x1.round().clamp(0, oriented.width - 1);
-      final y = det.y1.round().clamp(0, oriented.height - 1);
-      final w = (det.x2 - det.x1).round().clamp(10, oriented.width - x);
-      final h = (det.y2 - det.y1).round().clamp(10, oriented.height - y);
-
-      final crop = img.copyCrop(oriented, x: x, y: y, width: w, height: h);
-      final resized = img.copyResize(crop, width: 224, height: 224);
-      final cropBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+      // Use the same padded, aspect-ratio-preserving crop as automatic review.
+      // This retains peel texture and enough leaf context to identify occlusion.
+      final crops = GeminiAssistantService.extractCrops(
+        fullImageBytes: widget.imageBytes,
+        detections: [det.copyWith(userEdited: false)],
+        candidateMinConf: 0,
+      );
+      if (crops.isEmpty) throw Exception('Could not prepare image crop');
 
       final verdicts = await GeminiAssistantService.verifyCropsBatch(
-        crops: [(id: 0, jpegBytes: cropBytes)],
+        crops: crops,
         apiKey: apiKey,
       );
 
@@ -261,9 +260,12 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           final idx = _allDetections.indexOf(det);
           if (idx != -1) {
             _allDetections[idx] = det.copyWith(
-              mangoClass: verdict.ripeness ?? det.mangoClass,
+              mangoClass: verdict.isMango
+                  ? verdict.ripeness ?? det.mangoClass
+                  : det.mangoClass,
               aiVerified: true,
               aiReason: verdict.reason,
+              needsReview: !verdict.isMango,
             );
             _updateFiltered();
           }

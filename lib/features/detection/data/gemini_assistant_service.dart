@@ -26,7 +26,8 @@ class CropVerdict {
   factory CropVerdict.fromJson(Map<String, dynamic> json) {
     final id = (json['id'] as num?)?.toInt() ?? -1;
     final isMango = json['is_mango'] == true || json['is_mango'] == 'true';
-    final rawRipeness = (json['ripeness'] as String?)?.toLowerCase().trim() ?? 'unknown';
+    final rawRipeness =
+        (json['ripeness'] as String?)?.toLowerCase().trim() ?? 'unknown';
 
     MangoClass? ripeness;
     if (rawRipeness == 'unripe') {
@@ -79,15 +80,48 @@ class AiAssistedDetectionResult {
   });
 }
 
+/// A safe, user-facing Gemini failure. It deliberately excludes request bodies
+/// and API keys so callers can show it directly in the app.
+class GeminiApiException implements Exception {
+  final String message;
+  final int? statusCode;
+
+  const GeminiApiException(this.message, {this.statusCode});
+
+  factory GeminiApiException.fromResponse(http.Response response) {
+    String? apiMessage;
+    try {
+      apiMessage = (jsonDecode(response.body) as Map<String, dynamic>)['error']
+          ?['message'] as String?;
+    } catch (_) {}
+
+    final message = switch (response.statusCode) {
+      400 => 'Gemini rejected this request. Update the app or try again.',
+      401 ||
+      403 =>
+        'Gemini API key was rejected or is not permitted for this app.',
+      429 => 'Gemini request limit reached. Please wait and try again.',
+      >= 500 => 'Gemini is temporarily unavailable. Please try again shortly.',
+      _ => apiMessage?.trim().isNotEmpty == true
+          ? 'Gemini request failed: $apiMessage'
+          : 'Gemini request failed (${response.statusCode}).',
+    };
+    return GeminiApiException(message, statusCode: response.statusCode);
+  }
+
+  @override
+  String toString() => message;
+}
+
 class GeminiAssistantService {
   /// Default and configurable constants
   static const String geminiModel = 'gemini-3.5-flash-lite';
   static const double candidateMinConfDefault = 0.15;
   static const double highConfKeepDefault = 0.50;
   static const double yoloClassKeepConfDefault = 0.60;
-  static const int maxCropsPerBatch = 8;
+  static const int maxCropsPerBatch = 4;
   static const Duration apiTimeout = Duration(seconds: 8);
-  static const double cropPaddingRatio = 0.15;
+  static const double cropPaddingRatio = 0.20;
 
   static const String defaultApiKey =
       String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
@@ -105,8 +139,9 @@ class GeminiAssistantService {
   /// Probes whether active internet connectivity is available quickly.
   static Future<bool> hasInternetConnection() async {
     try {
-      final result = await InternetAddress.lookup('generativelanguage.googleapis.com')
-          .timeout(const Duration(milliseconds: 2500));
+      final result =
+          await InternetAddress.lookup('generativelanguage.googleapis.com')
+              .timeout(const Duration(milliseconds: 2500));
       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
     } catch (_) {
       try {
@@ -151,7 +186,8 @@ class GeminiAssistantService {
       // For boxes below that, Gemini may remove ONLY if is_mango == false.
       if (!verdict.isMango && yoloDet.confidence < highConfKeep) {
         if (kDebugMode) {
-          debugPrint('[Detection #$i] YOLO: ${yoloDet.mangoClass.label} (${yoloDet.confidence.toStringAsFixed(2)}) | '
+          debugPrint(
+              '[Detection #$i] YOLO: ${yoloDet.mangoClass.label} (${yoloDet.confidence.toStringAsFixed(2)}) | '
               'Gemini: is_mango=${verdict.isMango}, ripeness=${verdict.rawRipeness}, reason="${verdict.reason}" | '
               'Decision: kept=false (removed false alarm), needsReview=false');
         }
@@ -186,7 +222,8 @@ class GeminiAssistantService {
       }
 
       if (kDebugMode) {
-        debugPrint('[Detection #$i] YOLO: ${yoloDet.mangoClass.label} (${yoloDet.confidence.toStringAsFixed(2)}) | '
+        debugPrint(
+            '[Detection #$i] YOLO: ${yoloDet.mangoClass.label} (${yoloDet.confidence.toStringAsFixed(2)}) | '
             'Gemini: is_mango=${verdict.isMango}, ripeness=${verdict.rawRipeness}, reason="${verdict.reason}" | '
             'Decision: class=${finalClass.label}, kept=true, needsReview=$needsReview');
       }
@@ -204,7 +241,7 @@ class GeminiAssistantService {
     return result;
   }
 
-  /// Crops candidate bounding boxes from the full-resolution image with ~15% padding,
+  /// Crops candidate boxes with enough surrounding peel/leaf context for review,
   /// clamped strictly to the original image bounds.
   static List<({int id, Uint8List jpegBytes})> extractCrops({
     required Uint8List fullImageBytes,
@@ -241,18 +278,21 @@ class GeminiAssistantService {
       final int cropW = max(1, x2 - x1);
       final int cropH = max(1, y2 - y1);
 
-      final crop = img.copyCrop(oriented, x: x1, y: y1, width: cropW, height: cropH);
-      // Downscale crop to max 256px for minimal payload & quick latency
+      final crop =
+          img.copyCrop(oriented, x: x1, y: y1, width: cropW, height: cropH);
+      // Preserve peel texture and small blemishes for ripeness review.
       img.Image toSend = crop;
-      if (max(cropW, cropH) > 256) {
+      if (max(cropW, cropH) > 384) {
         if (cropW >= cropH) {
-          toSend = img.copyResize(crop, width: 256, interpolation: img.Interpolation.linear);
+          toSend = img.copyResize(crop,
+              width: 384, interpolation: img.Interpolation.linear);
         } else {
-          toSend = img.copyResize(crop, height: 256, interpolation: img.Interpolation.linear);
+          toSend = img.copyResize(crop,
+              height: 384, interpolation: img.Interpolation.linear);
         }
       }
 
-      final jpgBytes = Uint8List.fromList(img.encodeJpg(toSend, quality: 80));
+      final jpgBytes = Uint8List.fromList(img.encodeJpg(toSend, quality: 88));
       crops.add((id: i, jpegBytes: jpgBytes));
     }
 
@@ -264,10 +304,12 @@ class GeminiAssistantService {
     required List<({int id, Uint8List jpegBytes})> crops,
     required String apiKey,
     String model = geminiModel,
+    http.Client? client,
   }) async {
     if (crops.isEmpty) return {};
 
-    final effectiveKey = apiKey.trim().isNotEmpty ? apiKey.trim() : defaultApiKey;
+    final effectiveKey =
+        apiKey.trim().isNotEmpty ? apiKey.trim() : defaultApiKey;
     if (effectiveKey.isEmpty) {
       throw Exception('Gemini API key is empty');
     }
@@ -275,15 +317,15 @@ class GeminiAssistantService {
     final List<Map<String, dynamic>> parts = [
       {
         "text": '''
-You are an expert mango orchard inspector.
-Examine each numbered crop closely.
+You are reviewing proposed mango detections from an orchard image.
+Each crop contains ONE proposed fruit centered in the crop.
 TASK:
-- Judge ONLY the fruit that occupies the CENTER of each crop.
-- If the center of the crop is background (grass, lawn, ground, leaves, branch, trunk, sky) and a fruit only touches an outer perimeter edge, return is_mango=false.
-- A partially occluded or partial mango still counts as a mango (is_mango=true) ONLY if it is centered in the crop.
-- If unsure, return is_mango=true and ripeness="unknown" rather than rejecting.
-- Ripeness enum: "unripe" (green peel), "ripe" (yellow/golden/orange), "overripe" (brown rot/decay), "unknown".
-- Keep every reason under 6 words.
+- Judge ONLY the central proposed object. Do not count nearby fruit or infer fruit hidden by leaves.
+- Return is_mango=false only when the central object is clearly leaf, branch, sky, ground, bag, hand, or another non-fruit object.
+- A centered, partly occluded mango is still a mango. If fruit identity is unclear, keep is_mango=true.
+- Ripeness must be based on visible peel only: unripe = predominantly green; ripe = predominantly yellow/golden; overripe = visible brown decay/wrinkling; unknown = lighting, occlusion, or color makes this unreliable.
+- Do not guess internal maturity. Use unknown when the peel cannot support a reliable stage.
+- Keep reason to 6 words or fewer.
 '''
       }
     ];
@@ -291,95 +333,123 @@ TASK:
     for (final crop in crops) {
       parts.add({"text": "Crop #${crop.id}:"});
       parts.add({
-        "inline_data": {
-          "mime_type": "image/jpeg",
+        "inlineData": {
+          "mimeType": "image/jpeg",
           "data": base64Encode(crop.jpegBytes),
         }
       });
     }
 
     final requestBody = jsonEncode({
-      "contents": [{"parts": parts}],
+      "contents": [
+        {"parts": parts}
+      ],
       "generationConfig": {
-        "response_mime_type": "application/json",
-        "response_schema": {
-          "type": "OBJECT",
-          "properties": {
-            "results": {
-              "type": "ARRAY",
-              "items": {
-                "type": "OBJECT",
-                "properties": {
-                  "id": {"type": "INTEGER"},
-                  "is_mango": {"type": "BOOLEAN"},
-                  "ripeness": {
-                    "type": "STRING",
-                    "enum": ["unripe", "ripe", "overripe", "unknown"]
-                  },
-                  "reason": {"type": "STRING"}
-                },
-                "required": ["id", "is_mango", "ripeness", "reason"]
-              }
-            }
-          },
-          "required": ["results"]
-        },
-        "temperature": 0.0,
-      }
-    });
-
-    final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveKey');
-
-    // Request with 8s timeout and 1 single retry
-    http.Response? response;
-    Exception? lastException;
-
-    for (int attempt = 0; attempt < 2; attempt++) {
-      try {
-        response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: requestBody,
-        ).timeout(apiTimeout);
-
-        if (response.statusCode == 200) break;
-        if (response.statusCode == 401 || response.statusCode == 403) {
-          throw Exception('Gemini authentication failed (${response.statusCode})');
-        }
-      } catch (e) {
-        lastException = e is Exception ? e : Exception(e.toString());
-        if (attempt == 1) rethrow;
-      }
-    }
-
-    if (response == null || response.statusCode != 200) {
-      throw lastException ?? Exception('Gemini request failed: ${response?.statusCode} ${response?.body}');
-    }
-
-    final data = jsonDecode(response.body);
-    final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String? ?? '';
-    if (text.isEmpty) return {};
-
-    final Map<int, CropVerdict> verdicts = {};
-    try {
-      final parsed = jsonDecode(text);
-      final results = parsed['results'];
-      if (results is List) {
-        for (final item in results) {
-          if (item is Map<String, dynamic>) {
-            final verdict = CropVerdict.fromJson(item);
-            if (verdict.id >= 0) {
-              verdicts[verdict.id] = verdict;
+        "responseFormat": {
+          "text": {
+            "mimeType": "application/json",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "integer"},
+                      "is_mango": {"type": "boolean"},
+                      "ripeness": {
+                        "type": "string",
+                        "enum": ["unripe", "ripe", "overripe", "unknown"]
+                      },
+                      "reason": {"type": "string"}
+                    },
+                    "required": ["id", "is_mango", "ripeness", "reason"]
+                  }
+                }
+              },
+              "required": ["results"]
             }
           }
         }
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('[Gemini JSON Parse Error]: $e');
-    }
+    });
 
-    return verdicts;
+    final url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent');
+
+    // Retry only transient failures; authentication and malformed requests will
+    // never succeed on a retry.
+    http.Response? response;
+    Object? lastError;
+    final requestClient = client ?? http.Client();
+
+    try {
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          response = await requestClient
+              .post(
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-goog-api-key': effectiveKey,
+                },
+                body: requestBody,
+              )
+              .timeout(apiTimeout);
+
+          if (response.statusCode == 200) break;
+          final error = GeminiApiException.fromResponse(response);
+          if (response.statusCode != 408 &&
+              response.statusCode != 429 &&
+              response.statusCode < 500) {
+            throw error;
+          }
+          lastError = error;
+          if (attempt < 2) {
+            await Future<void>.delayed(
+              Duration(milliseconds: 400 * (1 << attempt)),
+            );
+          }
+        } catch (e) {
+          lastError = e;
+          if (e is GeminiApiException || attempt == 2) rethrow;
+        }
+      }
+
+      if (response == null || response.statusCode != 200) {
+        throw lastError ??
+            const GeminiApiException('Gemini did not return a response.');
+      }
+
+      final data = jsonDecode(response.body);
+      final text = data['candidates']?[0]?['content']?['parts']?[0]?['text']
+              as String? ??
+          '';
+      if (text.isEmpty) return {};
+
+      final Map<int, CropVerdict> verdicts = {};
+      try {
+        final parsed = jsonDecode(text);
+        final results = parsed['results'];
+        if (results is List) {
+          for (final item in results) {
+            if (item is Map<String, dynamic>) {
+              final verdict = CropVerdict.fromJson(item);
+              if (verdict.id >= 0) {
+                verdicts[verdict.id] = verdict;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('[Gemini JSON Parse Error]: $e');
+      }
+
+      return verdicts;
+    } finally {
+      if (client == null) requestClient.close();
+    }
   }
 
   /// High-level method: extracts crops, batches them, queries Gemini, and reconciles verdicts.
@@ -394,6 +464,7 @@ TASK:
     double candidateMinConf = candidateMinConfDefault,
     double highConfKeep = highConfKeepDefault,
     double yoloClassKeepConf = yoloClassKeepConfDefault,
+    http.Client? client,
   }) async {
     if (existingYoloDetections.isEmpty) {
       return buildFallbackResult(
@@ -415,11 +486,12 @@ TASK:
         return buildFallbackResult(
           detections: existingYoloDetections,
           providerName: formatModelName(model),
-          summary: 'All candidates below confidence threshold ($candidateMinConf)',
+          summary:
+              'All candidates below confidence threshold ($candidateMinConf)',
         );
       }
 
-      // 2. Batch crops (max 8 per batch)
+      // 2. Batch crops. Small batches keep each central fruit unambiguous.
       final Map<int, CropVerdict> allVerdicts = {};
 
       for (int i = 0; i < crops.length; i += maxCropsPerBatch) {
@@ -429,6 +501,7 @@ TASK:
           crops: batch,
           apiKey: geminiApiKey,
           model: model,
+          client: client,
         );
         allVerdicts.addAll(batchVerdicts);
       }
@@ -445,9 +518,12 @@ TASK:
       final rejected = existingYoloDetections.length - reconciled.length;
       final needsReview = reconciled.where((d) => d.needsReview).length;
 
-      final overRipe = reconciled.where((d) => d.mangoClass == MangoClass.over_ripe).length;
-      final ripe = reconciled.where((d) => d.mangoClass == MangoClass.ripe).length;
-      final unripe = reconciled.where((d) => d.mangoClass == MangoClass.unripe).length;
+      final overRipe =
+          reconciled.where((d) => d.mangoClass == MangoClass.over_ripe).length;
+      final ripe =
+          reconciled.where((d) => d.mangoClass == MangoClass.ripe).length;
+      final unripe =
+          reconciled.where((d) => d.mangoClass == MangoClass.unripe).length;
 
       return AiAssistedDetectionResult(
         reconciledDetections: reconciled,
@@ -483,9 +559,12 @@ TASK:
     String? errorMessage,
     bool success = true,
   }) {
-    final overRipe = detections.where((d) => d.mangoClass == MangoClass.over_ripe).length;
-    final ripe = detections.where((d) => d.mangoClass == MangoClass.ripe).length;
-    final unripe = detections.where((d) => d.mangoClass == MangoClass.unripe).length;
+    final overRipe =
+        detections.where((d) => d.mangoClass == MangoClass.over_ripe).length;
+    final ripe =
+        detections.where((d) => d.mangoClass == MangoClass.ripe).length;
+    final unripe =
+        detections.where((d) => d.mangoClass == MangoClass.unripe).length;
 
     return AiAssistedDetectionResult(
       reconciledDetections: detections,

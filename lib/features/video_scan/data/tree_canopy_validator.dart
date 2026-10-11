@@ -187,8 +187,8 @@ CRITICAL RULES:
 '''
       },
       {
-        "inline_data": {
-          "mime_type": "image/jpeg",
+        "inlineData": {
+          "mimeType": "image/jpeg",
           "data": base64Encode(optimizedJpgBytes),
         }
       }
@@ -199,67 +199,73 @@ CRITICAL RULES:
         {"parts": parts}
       ],
       "generationConfig": {
-        "response_mime_type": "application/json",
-        "response_schema": {
-          "type": "OBJECT",
-          "properties": {
-            "is_mango_tree": {"type": "BOOLEAN"},
-            "confidence": {"type": "NUMBER"},
-            "detected_subject": {"type": "STRING"},
-            "reason": {"type": "STRING"}
-          },
-          "required": ["is_mango_tree", "detected_subject", "reason"]
-        },
-        "temperature": 0.0,
+        "responseFormat": {
+          "text": {
+            "mimeType": "application/json",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "is_mango_tree": {"type": "boolean"},
+                "confidence": {"type": "number"},
+                "detected_subject": {"type": "string"},
+                "reason": {"type": "string"}
+              },
+              "required": ["is_mango_tree", "detected_subject", "reason"]
+            }
+          }
+        }
       }
     });
 
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
     );
 
     final client = _client ?? http.Client();
-    final response = await client
-        .post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: requestBody,
-        )
-        .timeout(apiTimeout);
+    try {
+      final response = await client
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            body: requestBody,
+          )
+          .timeout(apiTimeout);
 
-    if (response.statusCode != 200) {
-      if (kDebugMode) {
-        debugPrint(
-            '[TreeCanopyValidator] Gemini HTTP ${response.statusCode}: ${response.body}');
+      if (response.statusCode != 200) {
+        throw GeminiApiException.fromResponse(response);
       }
-      return null;
+
+      final data = jsonDecode(response.body);
+      final text = data['candidates']?[0]?['content']?['parts']?[0]?['text']
+              as String? ??
+          '';
+      if (text.isEmpty) return null;
+
+      final parsed = jsonDecode(text) as Map<String, dynamic>;
+      final isMangoTree =
+          parsed['is_mango_tree'] == true || parsed['is_mango_tree'] == 'true';
+      final detectedSubject =
+          (parsed['detected_subject'] as String?)?.trim() ?? 'Unknown scene';
+      final reason = (parsed['reason'] as String?)?.trim() ??
+          (isMangoTree
+              ? 'Mango tree canopy verified by AI.'
+              : 'Non-tree scene detected.');
+      final confidence = (parsed['confidence'] as num?)?.toDouble() ??
+          (isMangoTree ? 0.95 : 0.90);
+
+      return CanopyValidationResult(
+        isMangoTree: isMangoTree,
+        isOnline: true,
+        confidence: confidence,
+        detectedSubject: detectedSubject,
+        reason: reason,
+      );
+    } finally {
+      if (_client == null) client.close();
     }
-
-    final data = jsonDecode(response.body);
-    final text =
-        data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String? ??
-            '';
-    if (text.isEmpty) return null;
-
-    final parsed = jsonDecode(text) as Map<String, dynamic>;
-    final isMangoTree =
-        parsed['is_mango_tree'] == true || parsed['is_mango_tree'] == 'true';
-    final detectedSubject =
-        (parsed['detected_subject'] as String?)?.trim() ?? 'Unknown scene';
-    final reason = (parsed['reason'] as String?)?.trim() ??
-        (isMangoTree
-            ? 'Mango tree canopy verified by AI.'
-            : 'Non-tree scene detected.');
-    final confidence = (parsed['confidence'] as num?)?.toDouble() ??
-        (isMangoTree ? 0.95 : 0.90);
-
-    return CanopyValidationResult(
-      isMangoTree: isMangoTree,
-      isOnline: true,
-      confidence: confidence,
-      detectedSubject: detectedSubject,
-      reason: reason,
-    );
   }
 
   /// On-device pixel chlorophyll and color distribution analysis for offline orchard use.

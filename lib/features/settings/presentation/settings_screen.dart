@@ -31,21 +31,29 @@ class SettingsScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: surface,
               borderRadius: AppShapes.leafCut,
-              border: Border.all(color: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
+              border: Border.all(
+                  color:
+                      isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
             ),
             child: Column(
               children: [
                 SwitchListTile(
                   secondary: Icon(Icons.label_outline_rounded, color: primary),
-                  title: Text('Show Fruit Labels', style: TextStyle(fontWeight: FontWeight.w600, color: text)),
-                  subtitle: Text('Shows ripeness and fruit tags over detected mangoes', style: TextStyle(color: muted, fontSize: 12)),
+                  title: Text('Show Fruit Labels',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, color: text)),
+                  subtitle: Text(
+                      'Shows ripeness and fruit tags over detected mangoes',
+                      style: TextStyle(color: muted, fontSize: 12)),
                   value: settings.showLabels,
                   onChanged: notifier.updateShowLabels,
                 ),
                 const Divider(height: 1, indent: 56),
                 SwitchListTile(
                   secondary: Icon(Icons.auto_awesome, color: amber),
-                  title: Text('Auto Sensitivity', style: TextStyle(fontWeight: FontWeight.w600, color: text)),
+                  title: Text('Auto Sensitivity',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, color: text)),
                   subtitle: Text(
                     settings.autoConfidence
                         ? 'Automatically adjusts sensitivity for sunlight and tree distance'
@@ -59,25 +67,36 @@ class SettingsScreen extends ConsumerWidget {
                   const Divider(height: 1, indent: 56),
                   ListTile(
                     leading: const SizedBox(width: 24),
-                    title: Text('Manual Sensitivity', style: TextStyle(fontWeight: FontWeight.w600, color: text, fontSize: 13)),
+                    title: Text('Manual Sensitivity',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: text,
+                            fontSize: 13)),
                     subtitle: Slider(
                       value: settings.confThreshold,
                       min: 0.05,
                       max: 0.50,
                       divisions: 18,
-                      label: '${(settings.confThreshold * 100).toStringAsFixed(0)}%',
+                      label:
+                          '${(settings.confThreshold * 100).toStringAsFixed(0)}%',
                       onChanged: notifier.updateConfThreshold,
                     ),
                     trailing: Text(
                       '${(settings.confThreshold * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, color: text),
+                      style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.bold,
+                          color: text),
                     ),
                   ),
                 ],
                 const Divider(height: 1, indent: 56),
                 ListTile(
-                  leading: Icon(Icons.filter_center_focus_rounded, color: primary),
-                  title: Text('Overlap Filter', style: TextStyle(fontWeight: FontWeight.w600, color: text)),
+                  leading:
+                      Icon(Icons.filter_center_focus_rounded, color: primary),
+                  title: Text('Overlap Filter',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, color: text)),
                   subtitle: Slider(
                     value: settings.iouThreshold,
                     min: 0.3,
@@ -88,21 +107,30 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   trailing: Text(
                     settings.iouThreshold.toStringAsFixed(2),
-                    style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, color: text),
+                    style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                        color: text),
                   ),
                 ),
                 const Divider(height: 1, indent: 56),
                 ListTile(
                   leading: Icon(Icons.aspect_ratio_rounded, color: primary),
-                  title: Text('Photo Detail Level', style: TextStyle(fontWeight: FontWeight.w600, color: text)),
+                  title: Text('Photo Detail Level',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, color: text)),
                   subtitle: DropdownButton<int>(
                     value: settings.maxResolution,
                     isExpanded: true,
                     underline: const SizedBox.shrink(),
                     items: const [
-                      DropdownMenuItem(value: 1280, child: Text('Fast Scan (lower memory)')),
-                      DropdownMenuItem(value: 1920, child: Text('High Accuracy (recommended)')),
-                      DropdownMenuItem(value: 4000, child: Text('Maximum Detail')),
+                      DropdownMenuItem(
+                          value: 1280, child: Text('Fast Scan (lower memory)')),
+                      DropdownMenuItem(
+                          value: 1920,
+                          child: Text('High Accuracy (recommended)')),
+                      DropdownMenuItem(
+                          value: 4000, child: Text('Maximum Detail')),
                     ],
                     onChanged: (val) {
                       if (val != null) notifier.updateMaxResolution(val);
@@ -111,8 +139,11 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const Divider(height: 1, indent: 56),
                 SwitchListTile(
-                  secondary: const Icon(Icons.grid_goldenratio_rounded, color: Color(0xFF00796B)),
-                  title: Text('Wide Photo Scanner', style: TextStyle(fontWeight: FontWeight.w600, color: text)),
+                  secondary: const Icon(Icons.grid_goldenratio_rounded,
+                      color: Color(0xFF00796B)),
+                  title: Text('Wide Photo Scanner',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, color: text)),
                   subtitle: Text(
                     'Scans large or wide tree photos in sections to find distant fruits.',
                     style: TextStyle(color: muted, fontSize: 12),
@@ -138,10 +169,13 @@ class SettingsScreen extends ConsumerWidget {
             child: Column(
               children: [
                 SwitchListTile(
-                  secondary: const Icon(Icons.cloud_sync_rounded, color: Colors.purple),
-                  title: Text('AI Fruit Check', style: TextStyle(fontWeight: FontWeight.w600, color: text)),
+                  secondary: const Icon(Icons.cloud_sync_rounded,
+                      color: Colors.purple),
+                  title: Text('AI Fruit Check',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, color: text)),
                   subtitle: Text(
-                    'Double-checks fruit ripeness, removes leaves or hands, and finds hidden mangoes.',
+                    'Reviews detected fruit for ripeness and possible leaf or hand false positives.',
                     style: TextStyle(color: muted, fontSize: 12),
                   ),
                   value: settings.autoAiAssist,
@@ -150,7 +184,9 @@ class SettingsScreen extends ConsumerWidget {
                 const Divider(height: 1, indent: 56),
                 ListTile(
                   leading: const Icon(Icons.key_rounded, color: Colors.purple),
-                  title: Text('Google Gemini API Key', style: TextStyle(fontWeight: FontWeight.w600, color: text)),
+                  title: Text('Google Gemini API Key',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, color: text)),
                   subtitle: Text(
                     settings.geminiApiKey.isEmpty
                         ? 'Not configured (tap to set)'
@@ -159,7 +195,8 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
-                    final ctrl = TextEditingController(text: settings.geminiApiKey);
+                    final ctrl =
+                        TextEditingController(text: settings.geminiApiKey);
                     showDialog(
                       context: context,
                       builder: (ctx) => AlertDialog(
@@ -218,24 +255,37 @@ class SettingsScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: surface,
               borderRadius: AppShapes.leafCut,
-              border: Border.all(color: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
+              border: Border.all(
+                  color:
+                      isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
             ),
             child: ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.errorCrimson),
-              title: const Text('Clear All Harvest Records', style: TextStyle(color: AppColors.errorCrimson, fontWeight: FontWeight.w600)),
-              subtitle: Text('Deletes all saved scans and photos from this device', style: TextStyle(color: muted, fontSize: 12)),
+              leading: const Icon(Icons.delete_outline_rounded,
+                  color: AppColors.errorCrimson),
+              title: const Text('Clear All Harvest Records',
+                  style: TextStyle(
+                      color: AppColors.errorCrimson,
+                      fontWeight: FontWeight.w600)),
+              subtitle: Text(
+                  'Deletes all saved scans and photos from this device',
+                  style: TextStyle(color: muted, fontSize: 12)),
               onTap: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('Confirm Reset'),
-                    content: const Text('Are you sure you want to permanently erase all harvest records? This action cannot be undone.'),
+                    content: const Text(
+                        'Are you sure you want to permanently erase all harvest records? This action cannot be undone.'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel')),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorCrimson),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.errorCrimson),
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Erase All', style: TextStyle(color: Colors.white)),
+                        child: const Text('Erase All',
+                            style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
@@ -244,7 +294,8 @@ class SettingsScreen extends ConsumerWidget {
                   ref.read(historyProvider.notifier).clearHistory();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('All harvest records cleared.')),
+                      const SnackBar(
+                          content: Text('All harvest records cleared.')),
                     );
                   }
                 }

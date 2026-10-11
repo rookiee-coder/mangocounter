@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:mangocounter/features/chat/domain/chat_message.dart';
 import 'package:mangocounter/features/chat/domain/scan_chat_context.dart';
 import 'package:mangocounter/features/chat/application/chat_controller.dart';
@@ -59,7 +62,9 @@ void main() {
   });
 
   group('ChatController StateNotifier tests', () {
-    test('Initializes with scan context and generates tailored welcome message and follow-up prompts', () {
+    test(
+        'Initializes with scan context and generates tailored welcome message and follow-up prompts',
+        () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -80,10 +85,13 @@ void main() {
       expect(state.messages.first.text, contains('7 harvest-ready'));
       expect(state.messages.first.text, contains('4 developing green'));
       expect(state.suggestedPrompts, isNotEmpty);
-      expect(state.suggestedPrompts.any((p) => p.contains('ready for harvest')), isTrue);
+      expect(state.suggestedPrompts.any((p) => p.contains('ready for harvest')),
+          isTrue);
     });
 
-    test('Initializes without scan context and provides general pomology suggestions', () {
+    test(
+        'Initializes without scan context and provides general pomology suggestions',
+        () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -98,7 +106,46 @@ void main() {
   });
 
   group('AI Chatbot Scope & Domain Boundary Tests', () {
-    test('User greeting or identity query ("hi tell me about yourselfd") correctly introduces Agronomist persona', () async {
+    test('uses current Gemini request fields without deprecated sampling',
+        () async {
+      late http.Request observedRequest;
+      final client = MockClient((request) async {
+        observedRequest = request;
+        return http.Response(
+          jsonEncode({
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'Harvest when shoulders are full.'}
+                  ]
+                }
+              }
+            ]
+          }),
+          200,
+        );
+      });
+
+      final response = await ChatService.sendMessage(
+        conversationHistory: [],
+        userPrompt: 'When should I harvest?',
+        apiKey: 'test-key',
+        model: ChatService.fallbackModel,
+        client: client,
+      );
+
+      final body = jsonDecode(observedRequest.body) as Map<String, dynamic>;
+      expect(observedRequest.url.queryParameters.containsKey('key'), isFalse);
+      expect(observedRequest.headers['x-goog-api-key'], 'test-key');
+      expect(body, contains('systemInstruction'));
+      expect(body['generationConfig'], isNot(contains('temperature')));
+      expect(response.text, contains('Harvest when shoulders are full'));
+    });
+
+    test(
+        'User greeting or identity query ("hi tell me about yourselfd") correctly introduces Agronomist persona',
+        () async {
       final response = await ChatService.sendMessage(
         conversationHistory: [],
         userPrompt: 'hi tell me about yourselfd',
@@ -122,10 +169,13 @@ void main() {
       expect(response.suggestedPrompts, isNotEmpty);
     });
 
-    test('In-scope query about pests and fruit flies produces pest protection plan', () async {
+    test(
+        'In-scope query about pests and fruit flies produces pest protection plan',
+        () async {
       final response = await ChatService.sendMessage(
         conversationHistory: [],
-        userPrompt: 'How can I prevent oriental fruit fly stings on my mangoes?',
+        userPrompt:
+            'How can I prevent oriental fruit fly stings on my mangoes?',
       );
 
       expect(response.role, ChatRole.assistant);

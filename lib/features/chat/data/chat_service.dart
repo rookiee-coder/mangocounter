@@ -62,6 +62,7 @@ You MUST strictly adhere to the following domain boundaries at all times:
     ScanChatContext? scanContext,
     String apiKey = '',
     String model = defaultModel,
+    http.Client? client,
   }) async {
     final effectiveKey = apiKey.trim().isNotEmpty
         ? apiKey.trim()
@@ -76,6 +77,7 @@ You MUST strictly adhere to the following domain boundaries at all times:
           scanContext: scanContext,
           apiKey: effectiveKey,
           model: model,
+          client: client,
         );
 
         final parsed = _parseResponseWithSuggestions(responseText);
@@ -89,7 +91,8 @@ You MUST strictly adhere to the following domain boundaries at all times:
         );
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('[ChatService Primary Model Error]: $e. Attempting fallback model.');
+          debugPrint(
+              '[ChatService Primary Model Error]: $e. Attempting fallback model.');
         }
 
         // Try fallback model once if primary model failed
@@ -101,6 +104,7 @@ You MUST strictly adhere to the following domain boundaries at all times:
               scanContext: scanContext,
               apiKey: effectiveKey,
               model: fallbackModel,
+              client: client,
             );
             final parsed = _parseResponseWithSuggestions(fallbackText);
             return ChatMessage(
@@ -133,6 +137,7 @@ You MUST strictly adhere to the following domain boundaries at all times:
     ScanChatContext? scanContext,
     required String apiKey,
     required String model,
+    http.Client? client,
   }) async {
     final List<Map<String, dynamic>> contents = [];
 
@@ -152,8 +157,8 @@ You MUST strictly adhere to the following domain boundaries at all times:
         final compressed = _compressForApi(msg.imageBytes!);
         if (compressed != null) {
           parts.add({
-            'inline_data': {
-              'mime_type': 'image/jpeg',
+            'inlineData': {
+              'mimeType': 'image/jpeg',
               'data': base64Encode(compressed),
             }
           });
@@ -172,8 +177,8 @@ You MUST strictly adhere to the following domain boundaries at all times:
       final compressed = _compressForApi(scanContext!.imageBytes!);
       if (compressed != null) {
         currentParts.add({
-          'inline_data': {
-            'mime_type': 'image/jpeg',
+          'inlineData': {
+            'mimeType': 'image/jpeg',
             'data': base64Encode(compressed),
           }
         });
@@ -195,41 +200,49 @@ $userPrompt
     contents.add({'role': 'user', 'parts': currentParts});
 
     final requestBody = jsonEncode({
-      'system_instruction': {
+      'systemInstruction': {
         'parts': [
           {'text': systemInstruction}
         ]
       },
       'contents': contents,
       'generationConfig': {
-        'temperature': 0.2,
         'maxOutputTokens': 1200,
       }
     });
 
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
     );
 
-    final response = await http
-        .post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: requestBody,
-        )
-        .timeout(timeoutDuration);
+    final requestClient = client ?? http.Client();
+    try {
+      final response = await requestClient
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            body: requestBody,
+          )
+          .timeout(timeoutDuration);
 
-    if (response.statusCode != 200) {
-      throw Exception('Gemini API HTTP ${response.statusCode}: ${response.body}');
+      if (response.statusCode != 200) {
+        throw GeminiApiException.fromResponse(response);
+      }
+
+      final data = jsonDecode(response.body);
+      final text =
+          data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+      if (text == null || text.trim().isEmpty) {
+        throw const GeminiApiException('Gemini returned an empty response.');
+      }
+
+      return text.trim();
+    } finally {
+      if (client == null) requestClient.close();
     }
-
-    final data = jsonDecode(response.body);
-    final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
-    if (text == null || text.trim().isEmpty) {
-      throw Exception('Empty content returned by Gemini API');
-    }
-
-    return text.trim();
   }
 
   static Uint8List? _compressForApi(Uint8List original) {
@@ -251,14 +264,16 @@ $userPrompt
     }
   }
 
-  static ({String text, List<String> suggestions}) _parseResponseWithSuggestions(String raw) {
+  static ({String text, List<String> suggestions})
+      _parseResponseWithSuggestions(String raw) {
     final lines = raw.split('\n');
     final List<String> bodyLines = [];
     final List<String> suggestions = [];
 
     for (final line in lines) {
       if (line.trim().startsWith('SUGGESTIONS:')) {
-        final rawSuggestions = line.trim().substring('SUGGESTIONS:'.length).trim();
+        final rawSuggestions =
+            line.trim().substring('SUGGESTIONS:'.length).trim();
         final parts = rawSuggestions.split('|');
         for (final p in parts) {
           final trimmed = p.trim();
@@ -317,16 +332,23 @@ $userPrompt
     if (isGreetingOrIdentity) {
       buffer.writeln('### 👋 Hello! I am your MangoCount AI Agronomist');
       buffer.writeln('');
-      buffer.writeln('I am a specialized **AI Pomology & Orchard Management Consultant** designed specifically for mango farmers, field agronomists, and orchard researchers.');
+      buffer.writeln(
+          'I am a specialized **AI Pomology & Orchard Management Consultant** designed specifically for mango farmers, field agronomists, and orchard researchers.');
       buffer.writeln('');
       buffer.writeln('**What I am trained to assist you with:**');
-      buffer.writeln('• **Canopy Scan Analysis:** Review fruit counts, yield density, and ripeness stages (Ripe, Unripe, Over-ripe).');
-      buffer.writeln('• **Harvest Scheduling:** Optimal picking windows and maturity indicators (shoulder fullness, brix sweetness, lenticels).');
-      buffer.writeln('• **Pest & Disease Control:** Integrated pest management for oriental fruit flies (*Bactrocera dorsalis*), anthracnose, and stem-end rot.');
-      buffer.writeln('• **Tree Nutrition & Pruning:** Fertilizer schedules (potassium nitrate KNO3, calcium), irrigation cutoff, and canopy aeration.');
-      buffer.writeln('• **Post-Harvest Handling:** Proper desapping racks, sap burn prevention, and hot water immersion treatment.');
+      buffer.writeln(
+          '• **Canopy Scan Analysis:** Review fruit counts, yield density, and ripeness stages (Ripe, Unripe, Over-ripe).');
+      buffer.writeln(
+          '• **Harvest Scheduling:** Optimal picking windows and maturity indicators (shoulder fullness, brix sweetness, lenticels).');
+      buffer.writeln(
+          '• **Pest & Disease Control:** Integrated pest management for oriental fruit flies (*Bactrocera dorsalis*), anthracnose, and stem-end rot.');
+      buffer.writeln(
+          '• **Tree Nutrition & Pruning:** Fertilizer schedules (potassium nitrate KNO3, calcium), irrigation cutoff, and canopy aeration.');
+      buffer.writeln(
+          '• **Post-Harvest Handling:** Proper desapping racks, sap burn prevention, and hot water immersion treatment.');
       buffer.writeln('');
-      buffer.writeln('Ask me any question regarding your mango trees, fruit maturity, or orchard health!');
+      buffer.writeln(
+          'Ask me any question regarding your mango trees, fruit maturity, or orchard health!');
 
       suggestions = [
         'When is the optimal harvest window?',
@@ -345,44 +367,129 @@ $userPrompt
 
     // 2. Clear Out-of-Scope Flags (CS / coding, math, general trivia, politics, sports)
     const outOfScopeFlags = [
-      'python', 'java', 'javascript', 'c++', 'code', 'coding', 'binary',
-      'algorithm', 'program', 'html', 'css', 'sql', 'database', 'math',
-      'president', 'championship', 'world cup', 'movie', 'actor', 'song',
-      'music', 'bitcoin', 'crypto', 'stock market', 'quantum', 'physics',
-      'calculate', 'recipe for pizza', 'translate', 'essay',
+      'python',
+      'java',
+      'javascript',
+      'c++',
+      'code',
+      'coding',
+      'binary',
+      'algorithm',
+      'program',
+      'html',
+      'css',
+      'sql',
+      'database',
+      'math',
+      'president',
+      'championship',
+      'world cup',
+      'movie',
+      'actor',
+      'song',
+      'music',
+      'bitcoin',
+      'crypto',
+      'stock market',
+      'quantum',
+      'physics',
+      'calculate',
+      'recipe for pizza',
+      'translate',
+      'essay',
     ];
 
-    final bool hasExplicitOutFlag = outOfScopeFlags.any((flag) => lower.contains(flag));
+    final bool hasExplicitOutFlag =
+        outOfScopeFlags.any((flag) => lower.contains(flag));
 
     // 3. Specific In-Scope Agronomy Keywords
     const specificAgronomyKeywords = [
-      'mango', 'fruit', 'harvest', 'pick', 'ripe', 'unripe', 'overripe',
-      'orchard', 'canopy', 'pest', 'disease', 'fly', 'flies', 'bactrocera',
-      'insect', 'anthracnose', 'rot', 'spot', 'fertiliz', 'water', 'irrigat',
-      'potassium', 'calcium', 'kno3', 'prun', 'flower', 'flush', 'carabao',
-      'yield', 'scan', 'reticle', 'post-harvest', 'desap', 'sap', 'soil',
-      'sunburn', 'brix', 'variety', 'pomology', 'agronomy', 'seed', 'peel',
-      'fungicide', 'pesticide', 'bagging', 'hopper', 'borer', 'mildew',
-      'foliage', 'crop', 'plant', 'nitrogen', 'phosphorus', 'root', 'tommy',
-      'kensington', 'keitt', 'kent', 'alphonso', 'nam dok', 'haden',
-      'mango tree', 'fruit tree',
+      'mango',
+      'fruit',
+      'harvest',
+      'pick',
+      'ripe',
+      'unripe',
+      'overripe',
+      'orchard',
+      'canopy',
+      'pest',
+      'disease',
+      'fly',
+      'flies',
+      'bactrocera',
+      'insect',
+      'anthracnose',
+      'rot',
+      'spot',
+      'fertiliz',
+      'water',
+      'irrigat',
+      'potassium',
+      'calcium',
+      'kno3',
+      'prun',
+      'flower',
+      'flush',
+      'carabao',
+      'yield',
+      'scan',
+      'reticle',
+      'post-harvest',
+      'desap',
+      'sap',
+      'soil',
+      'sunburn',
+      'brix',
+      'variety',
+      'pomology',
+      'agronomy',
+      'seed',
+      'peel',
+      'fungicide',
+      'pesticide',
+      'bagging',
+      'hopper',
+      'borer',
+      'mildew',
+      'foliage',
+      'crop',
+      'plant',
+      'nitrogen',
+      'phosphorus',
+      'root',
+      'tommy',
+      'kensington',
+      'keitt',
+      'kent',
+      'alphonso',
+      'nam dok',
+      'haden',
+      'mango tree',
+      'fruit tree',
     ];
 
-    final bool hasSpecificAgronomyKeyword = specificAgronomyKeywords.any((kw) => lower.contains(kw));
+    final bool hasSpecificAgronomyKeyword =
+        specificAgronomyKeywords.any((kw) => lower.contains(kw));
 
-    final bool isQueryInScope = (scanContext != null || hasSpecificAgronomyKeyword) && !hasExplicitOutFlag;
+    final bool isQueryInScope =
+        (scanContext != null || hasSpecificAgronomyKeyword) &&
+            !hasExplicitOutFlag;
 
     // 4. Out-Of-Scope Guardrail Response
     if (!isQueryInScope) {
       buffer.writeln('### 🌾 Domain Boundary Notice');
       buffer.writeln('');
-      buffer.writeln('I am specialized exclusively as the **MangoCount AI Agronomist**. I cannot provide assistance on topics outside of mango cultivation, fruit orchard management, or canopy scan analysis.');
+      buffer.writeln(
+          'I am specialized exclusively as the **MangoCount AI Agronomist**. I cannot provide assistance on topics outside of mango cultivation, fruit orchard management, or canopy scan analysis.');
       buffer.writeln('');
       buffer.writeln('**Please feel free to ask about:**');
       buffer.writeln('• When to harvest your current mango crop');
       buffer.writeln('• Days until green mangoes reach harvest maturity');
-      buffer.writeln('• Protecting fruit from oriental fruit flies and anthracnose');
-      buffer.writeln('• Pre-harvest irrigation cutoff and fertilizer schedules');
+      buffer.writeln(
+          '• Protecting fruit from oriental fruit flies and anthracnose');
+      buffer
+          .writeln('• Pre-harvest irrigation cutoff and fertilizer schedules');
       buffer.writeln('• Post-harvest desapping and hot water treatment');
 
       suggestions = [
@@ -403,64 +510,99 @@ $userPrompt
     // 5. In-Scope Agronomy Guidance Generation
     buffer.writeln('### 🌾 AI Agronomist Field Analysis');
     if (isOffline) {
-      buffer.writeln('> *Running in Offline Field Mode. Telemetry-based recommendations are active.*');
+      buffer.writeln(
+          '> *Running in Offline Field Mode. Telemetry-based recommendations are active.*');
       buffer.writeln('');
     }
 
     if (scanContext != null) {
       buffer.writeln('**Canopy Audit Summary:**');
       buffer.writeln('• **Total Detected:** $total fruits');
-      buffer.writeln('• **Harvest-Ready (Ripe):** $ripe (${total > 0 ? ((ripe / total) * 100).toStringAsFixed(0) : 0}%)');
-      buffer.writeln('• **Maturing Green (Unripe):** $unripe (${total > 0 ? ((unripe / total) * 100).toStringAsFixed(0) : 0}%)');
+      buffer.writeln(
+          '• **Harvest-Ready (Ripe):** $ripe (${total > 0 ? ((ripe / total) * 100).toStringAsFixed(0) : 0}%)');
+      buffer.writeln(
+          '• **Maturing Green (Unripe):** $unripe (${total > 0 ? ((unripe / total) * 100).toStringAsFixed(0) : 0}%)');
       if (overRipe > 0) {
-        buffer.writeln('• ⚠️ **Over-Ripe Warning:** $overRipe fruit(s) require immediate removal to prevent fruit fly infestation.');
+        buffer.writeln(
+            '• ⚠️ **Over-Ripe Warning:** $overRipe fruit(s) require immediate removal to prevent fruit fly infestation.');
       }
       buffer.writeln('');
     }
 
-    if (lower.contains('harvest') || lower.contains('pick') || lower.contains('ready') || lower.contains('when') || lower.contains('date')) {
+    if (lower.contains('harvest') ||
+        lower.contains('pick') ||
+        lower.contains('ready') ||
+        lower.contains('when') ||
+        lower.contains('date')) {
       buffer.writeln('### 🧺 Harvest Window Recommendations');
       if (ripe > 0) {
-        buffer.writeln('• **Immediate Action:** The **$ripe ripe mangoes** should be picked within 24–48 hours to minimize bird pecking, fruit fly stings, and sunburn.');
+        buffer.writeln(
+            '• **Immediate Action:** The **$ripe ripe mangoes** should be picked within 24–48 hours to minimize bird pecking, fruit fly stings, and sunburn.');
       }
       if (unripe > 0) {
-        buffer.writeln('• **Green Batch Timing:** The **$unripe green mangoes** appear to be in mid-to-late development. Monitor shoulder fullness and lenticel color (turning white/cream). Typical maturity window is **7 to 14 days** away.');
+        buffer.writeln(
+            '• **Green Batch Timing:** The **$unripe green mangoes** appear to be in mid-to-late development. Monitor shoulder fullness and lenticel color (turning white/cream). Typical maturity window is **7 to 14 days** away.');
       }
-      buffer.writeln('• **Harvest Technique:** Use telescopic pole clippers with catching nets. Clip stems leaving **2–3 cm pedicel** to prevent latex/sap burn on the fruit surface.');
-      buffer.writeln('• **Desapping:** Invert picked fruits on desapping racks for 20 minutes to allow caustic latex to drain away safely.');
+      buffer.writeln(
+          '• **Harvest Technique:** Use telescopic pole clippers with catching nets. Clip stems leaving **2–3 cm pedicel** to prevent latex/sap burn on the fruit surface.');
+      buffer.writeln(
+          '• **Desapping:** Invert picked fruits on desapping racks for 20 minutes to allow caustic latex to drain away safely.');
 
       suggestions = [
         'How do I handle desapping after picking?',
         'What is the flotation test for maturity?',
         'How to store green mangoes for uniform ripening?',
       ];
-    } else if (lower.contains('pest') || lower.contains('disease') || lower.contains('fly') || lower.contains('insect') || lower.contains('spot') || lower.contains('rot') || lower.contains('anthracnose')) {
+    } else if (lower.contains('pest') ||
+        lower.contains('disease') ||
+        lower.contains('fly') ||
+        lower.contains('insect') ||
+        lower.contains('spot') ||
+        lower.contains('rot') ||
+        lower.contains('anthracnose')) {
       buffer.writeln('### 🛡️ Pest & Disease Protection Plan');
-      buffer.writeln('• **Oriental Fruit Fly (*Bactrocera dorsalis*):** Install methyl eugenol pheromone traps around tree perimeters (4 traps/hectare). Consider bagging individual fruit clusters with breathable double-layered paper bags 30 days before harvest.');
-      buffer.writeln('• **Anthracnose (*Colletotrichum gloeosporioides*):** Ensure canopy airflow through selective pruning. If rain is expected, apply copper fungicide or azoxystrobin spray.');
-      buffer.writeln('• **Stem-End Rot Prevention:** Post-harvest hot water immersion treatment (**48°C for 15 minutes**) eliminates latent fungal pathogens without chemical residues.');
+      buffer.writeln(
+          '• **Oriental Fruit Fly (*Bactrocera dorsalis*):** Install methyl eugenol pheromone traps around tree perimeters (4 traps/hectare). Consider bagging individual fruit clusters with breathable double-layered paper bags 30 days before harvest.');
+      buffer.writeln(
+          '• **Anthracnose (*Colletotrichum gloeosporioides*):** Ensure canopy airflow through selective pruning. If rain is expected, apply copper fungicide or azoxystrobin spray.');
+      buffer.writeln(
+          '• **Stem-End Rot Prevention:** Post-harvest hot water immersion treatment (**48°C for 15 minutes**) eliminates latent fungal pathogens without chemical residues.');
 
       suggestions = [
         'What is the best fruit bagging material?',
         'How to prepare hot water treatment for anthracnose?',
         'How to control mango leafhoppers?',
       ];
-    } else if (lower.contains('fertiliz') || lower.contains('water') || lower.contains('nutrition') || lower.contains('potassium') || lower.contains('kno3') || lower.contains('calcium')) {
+    } else if (lower.contains('fertiliz') ||
+        lower.contains('water') ||
+        lower.contains('nutrition') ||
+        lower.contains('potassium') ||
+        lower.contains('kno3') ||
+        lower.contains('calcium')) {
       buffer.writeln('### 💧 Nutrition & Irrigation Guidance');
-      buffer.writeln('• **Late Stage Sizing:** Apply Potassium Sulfate (0-0-50) or foliar potassium nitrate (KNO3) at 1–2% concentration to boost brix sweetness and uniform fruit expansion.');
-      buffer.writeln('• **Irrigation Cutoff:** Reduce deep watering **10 to 14 days prior to target harvest**. This concentrates fruit sugars, improves shelf life, and prevents water-core splitting.');
-      buffer.writeln('• **Calcium Foliar Spray:** Apply chelated calcium to strengthen cell walls, significantly reducing internal fruit breakdown.');
+      buffer.writeln(
+          '• **Late Stage Sizing:** Apply Potassium Sulfate (0-0-50) or foliar potassium nitrate (KNO3) at 1–2% concentration to boost brix sweetness and uniform fruit expansion.');
+      buffer.writeln(
+          '• **Irrigation Cutoff:** Reduce deep watering **10 to 14 days prior to target harvest**. This concentrates fruit sugars, improves shelf life, and prevents water-core splitting.');
+      buffer.writeln(
+          '• **Calcium Foliar Spray:** Apply chelated calcium to strengthen cell walls, significantly reducing internal fruit breakdown.');
 
       suggestions = [
         'When should I stop watering before harvest?',
         'What foliar spray boosts mango sweetness?',
         'How much potassium nitrate for flower induction?',
       ];
-    } else if (lower.contains('prun') || lower.contains('flower') || lower.contains('canopy') || lower.contains('variety')) {
+    } else if (lower.contains('prun') ||
+        lower.contains('flower') ||
+        lower.contains('canopy') ||
+        lower.contains('variety')) {
       buffer.writeln('### 🌿 Canopy Management & Varietal Advice');
-      buffer.writeln('• **Post-Harvest Pruning:** Open the tree center ("cup" shape) by removing water sprouts and dead twigs to allow sunlight penetration for next season\'s fruit wood.');
-      buffer.writeln('• **Flowering Induction:** For varieties like Carabao, potassium nitrate foliar spray is typically applied 7.5–9 months after previous harvest when leaves are mature and dark green.');
-      buffer.writeln('• **Canopy Aeration:** Good wind circulation reduces relative humidity within the foliage, keeping fungal spores from germinating on delicate flower panicles.');
+      buffer.writeln(
+          '• **Post-Harvest Pruning:** Open the tree center ("cup" shape) by removing water sprouts and dead twigs to allow sunlight penetration for next season\'s fruit wood.');
+      buffer.writeln(
+          '• **Flowering Induction:** For varieties like Carabao, potassium nitrate foliar spray is typically applied 7.5–9 months after previous harvest when leaves are mature and dark green.');
+      buffer.writeln(
+          '• **Canopy Aeration:** Good wind circulation reduces relative humidity within the foliage, keeping fungal spores from germinating on delicate flower panicles.');
 
       suggestions = [
         'How to prune after mango harvest?',
@@ -469,9 +611,12 @@ $userPrompt
       ];
     } else {
       buffer.writeln('### 🌿 General Canopy & Orchard Assessment');
-      buffer.writeln('• **Ripeness Uniformity:** Your canopy shows a healthy mix of developing and maturing fruit. Selective multiple-pass picking is recommended over single stripping.');
-      buffer.writeln('• **Sun Exposure:** Ensure inner canopy branches receive dappled sunlight by light post-harvest pruning of water sprouts.');
-      buffer.writeln('• **Yield Potential:** Based on current fruit density, healthy leaf retention indicates strong photosynthetic support for final fruit filling.');
+      buffer.writeln(
+          '• **Ripeness Uniformity:** Your canopy shows a healthy mix of developing and maturing fruit. Selective multiple-pass picking is recommended over single stripping.');
+      buffer.writeln(
+          '• **Sun Exposure:** Ensure inner canopy branches receive dappled sunlight by light post-harvest pruning of water sprouts.');
+      buffer.writeln(
+          '• **Yield Potential:** Based on current fruit density, healthy leaf retention indicates strong photosynthetic support for final fruit filling.');
 
       suggestions = [
         'When is the optimal harvest window?',
