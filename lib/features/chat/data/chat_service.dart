@@ -511,7 +511,7 @@ $userPrompt
     buffer.writeln('### 🌾 AI Agronomist Field Analysis');
     if (isOffline) {
       buffer.writeln(
-          '> *Running in Offline Field Mode. Telemetry-based recommendations are active.*');
+          '> *Cloud AI is not configured. Add a Google Gemini API key in Settings to enable online answers; local field guidance remains available.*');
       buffer.writeln('');
     }
 

@@ -143,6 +143,17 @@ void main() {
       expect(response.text, contains('Harvest when shoulders are full'));
     });
 
+    test('identifies a missing Gemini key instead of implying a network fault',
+        () async {
+      final response = await ChatService.sendMessage(
+        conversationHistory: [],
+        userPrompt: 'When should I harvest?',
+      );
+
+      expect(response.text, contains('Cloud AI is not configured'));
+      expect(response.text, contains('Google Gemini API key'));
+    });
+
     test(
         'User greeting or identity query ("hi tell me about yourselfd") correctly introduces Agronomist persona',
         () async {

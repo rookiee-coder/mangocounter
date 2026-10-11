@@ -70,6 +70,46 @@ void main() {
   });
 
   group('TreeCanopyValidator Online Gemini AI Gatekeeper', () {
+    test(
+        'calls Gemini when DNS preflight reports offline but an API key exists',
+        () async {
+      var called = false;
+      final mockClient = MockClient((_) async {
+        called = true;
+        return http.Response(
+          jsonEncode({
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {
+                      'text': jsonEncode({
+                        'is_mango_tree': true,
+                        'detected_subject': 'Mango Canopy',
+                        'reason': 'Mango foliage detected',
+                      })
+                    }
+                  ]
+                }
+              }
+            ]
+          }),
+          200,
+        );
+      });
+      final validator = TreeCanopyValidator(
+        client: mockClient,
+        internetCheckOverride: () async => false,
+      );
+      final bytes =
+          Uint8List.fromList(img.encodeJpg(img.Image(width: 50, height: 50)));
+
+      final result = await validator.validateCanopy(bytes, apiKey: 'test-key');
+
+      expect(called, isTrue);
+      expect(result.isOnline, isTrue);
+    });
+
     test('Online Gemini rejects indoor office nonsense video', () async {
       late http.Request observedRequest;
       final mockClient = MockClient((request) async {

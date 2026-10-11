@@ -95,7 +95,11 @@ class TreeCanopyValidator {
     final effectiveKey = apiKey.trim().isNotEmpty
         ? apiKey.trim()
         : GeminiAssistantService.defaultApiKey;
-    final hasNet = effectiveKey.isNotEmpty && await checkInternet();
+    // Do not use DNS as a gate for the actual API request. Mobile networks,
+    // private DNS, and captive portals can resolve differently from the HTTP
+    // client, which produced false "offline" results on connected devices.
+    // The Gemini request itself is the authoritative connectivity check.
+    final hasNet = effectiveKey.isNotEmpty;
 
     // 1. Online AI Verification via Gemini Vision
     if (hasNet) {
