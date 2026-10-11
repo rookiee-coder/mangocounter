@@ -17,6 +17,8 @@ import '../../video_scan/application/video_scan_controller.dart';
 import '../../video_scan/presentation/video_analyzing_view.dart';
 import '../../video_scan/presentation/video_result_screen.dart';
 import '../../settings/application/settings_controller.dart';
+import '../../orchard/presentation/orchard_dashboard.dart';
+import '../../history/domain/scan_record.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -28,8 +30,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isProcessing = false;
+  String? _selectedTreeId;
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImage(ImageSource source, {required String treeId}) async {
     if (source == ImageSource.camera) {
       final status = await Permission.camera.request();
       if (status.isPermanentlyDenied) {
@@ -79,15 +82,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                ResultScreen(imageBytes: bytes, originalPath: image.path),
+            builder: (_) => ResultScreen(
+              imageBytes: bytes,
+              originalPath: image.path,
+              treeId: treeId,
+            ),
           ),
         );
       }
     }
   }
 
-  Future<void> _pickVideo(ImageSource source) async {
+  Future<void> _pickVideo(ImageSource source, {required String treeId}) async {
     if (source == ImageSource.camera) {
       final status = await Permission.camera.request();
       if (status.isPermanentlyDenied) {
@@ -137,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => VideoResultScreen(result: result),
+            builder: (_) => VideoResultScreen(result: result, treeId: treeId),
           ),
         );
       } else {
@@ -148,6 +154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             reason: scanState.nonTreeReason ??
                 'The video does not depict a mango tree canopy.',
             source: source,
+            treeId: treeId,
           );
         } else if (scanState.errorMessage != null &&
             scanState.errorMessage!.isNotEmpty) {
@@ -166,6 +173,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String detectedSubject,
     required String reason,
     required ImageSource source,
+    required String treeId,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = isDark ? AppColors.darkPrimaryMint : AppColors.primaryGreen;
@@ -321,7 +329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
-              _pickVideo(source);
+              _pickVideo(source, treeId: treeId);
             },
             icon: Icon(
                 source == ImageSource.camera
@@ -344,7 +352,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _showVideoSourceDialog(BuildContext context) {
+  void _showVideoSourceDialog(BuildContext context, {required String treeId}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -406,7 +414,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickVideo(ImageSource.camera);
+                  _pickVideo(ImageSource.camera, treeId: treeId);
                 },
               ),
               const Divider(height: 1),
@@ -425,13 +433,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickVideo(ImageSource.gallery);
+                  _pickVideo(ImageSource.gallery, treeId: treeId);
                 },
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  ScanRecord? _latestScanForTree(String treeId, List<ScanRecord> scans) {
+    ScanRecord? latest;
+    for (final scan in scans) {
+      if (scan.treeId != treeId) continue;
+      if (latest == null || scan.createdAt > latest.createdAt) latest = scan;
+    }
+    return latest;
+  }
+
+  void _openTreeDetails(OrchardTreeRef tree, List<ScanRecord> scans) {
+    setState(() => _selectedTreeId = tree.id);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: false,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => OrchardTreeDetailsSheet(
+        tree: tree,
+        latestScan: _latestScanForTree(tree.id, scans),
+        onCameraScan: () {
+          Navigator.pop(sheetContext);
+          _pickImage(ImageSource.camera, treeId: tree.id);
+        },
+        onGalleryScan: () {
+          Navigator.pop(sheetContext);
+          _pickImage(ImageSource.gallery, treeId: tree.id);
+        },
+        onVideoScan: () {
+          Navigator.pop(sheetContext);
+          _showVideoSourceDialog(context, treeId: tree.id);
+        },
+      ),
     );
   }
 
@@ -719,248 +765,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
 
-              // Primary Action: Take Photo (Sunset Gradient Card)
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: detectorAsync.isLoading
-                      ? null
-                      : () => _pickImage(ImageSource.camera),
-                  borderRadius: AppShapes.leafCut,
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.sunsetGradient,
-                      borderRadius: AppShapes.leafCut,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF8A3D).withOpacity(0.32),
-                          blurRadius: 18,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 22, vertical: 20),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1B2A21),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt_rounded,
-                            color: Color(0xFFF5C33B),
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Scan Tree with Camera',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF1B2A21),
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Point camera at tree branches or fruit clusters',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xCC1B2A21),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward_rounded,
-                          color: Color(0xFF1B2A21),
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
+              historyAsync.when(
+                data: (scans) => OrchardDashboard(
+                  scans: scans,
+                  selectedTreeId: _selectedTreeId,
+                  onTreeSelected: (tree) => _openTreeDetails(tree, scans),
+                ),
+                loading: () => const SizedBox(
+                  height: 140,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (_, __) => OrchardDashboard(
+                  scans: const [],
+                  selectedTreeId: _selectedTreeId,
+                  onTreeSelected: (tree) => _openTreeDetails(tree, const []),
                 ),
               ),
-
-              const SizedBox(height: 12),
-
-              // Secondary Action: Choose from Field Gallery
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: detectorAsync.isLoading
-                      ? null
-                      : () => _pickImage(ImageSource.gallery),
-                  borderRadius: AppShapes.leafCut,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: surface,
-                      borderRadius: AppShapes.leafCut,
-                      border: Border.all(
-                        color: primary.withOpacity(0.35),
-                        width: 1.5,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 16),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: primary.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(
-                            Icons.photo_library_outlined,
-                            color: primary,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Photo from Gallery',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: text,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Choose a saved tree photo from your phone',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: muted,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Tertiary Action: Whole-Tree Video Scan (Sweep Pan)
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: detectorAsync.isLoading
-                      ? null
-                      : () => _showVideoSourceDialog(context),
-                  borderRadius: AppShapes.leafCut,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: surface,
-                      borderRadius: AppShapes.leafCut,
-                      border: Border.all(
-                        color:
-                            AppColors.ripeAmber.withOpacity(isDark ? 0.5 : 0.6),
-                        width: 1.5,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 16),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: AppColors.ripeAmber.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.videocam_rounded,
-                            color: AppColors.ripeAmber,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    'Whole-Tree Video Scan',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: text,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: primary.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      'WHOLE TREE',
-                                      style: TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontSize: 8.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: primary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Record a video sweep around the tree to count all fruits',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: muted,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
 
               // Orchard Summary Card (History metrics)
               historyAsync.when(

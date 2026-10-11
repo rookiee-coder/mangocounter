@@ -14,10 +14,12 @@ import '../domain/video_scan_result.dart';
 
 class VideoResultScreen extends ConsumerStatefulWidget {
   final VideoScanResult result;
+  final String? treeId;
 
   const VideoResultScreen({
     super.key,
     required this.result,
+    this.treeId,
   });
 
   @override
@@ -28,6 +30,7 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
   int _selectedFrameIndex = 0;
   bool _showLabels = true;
   bool _isSaved = false;
+  bool _isSaving = false;
 
   void _openChat([String? initialQuestion]) {
     final curFrame = widget.result.frames.isNotEmpty
@@ -64,6 +67,8 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
       );
       return;
     }
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
 
     try {
       final curFrame = widget.result.frames.isNotEmpty
@@ -82,6 +87,7 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
       final frameDetections = curFrame?.detections ?? <Detection>[];
       final record = ScanRecord(
         id: const Uuid().v4(),
+        treeId: widget.treeId,
         imagePath: savedImagePath,
         createdAt: DateTime.now().millisecondsSinceEpoch,
         modelRipe: widget.result.ripeCount,
@@ -103,8 +109,10 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Whole tree scan saved to history! 🌾'),
+          SnackBar(
+            content: Text(widget.treeId == null
+                ? 'Whole tree scan saved to history! 🌾'
+                : 'Scan saved and tree count updated! 🌾'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -117,7 +125,14 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
               backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _finishScan() async {
+    if (!_isSaved) await _save();
+    if (mounted && _isSaved) Navigator.of(context).pop();
   }
 
   @override
@@ -179,8 +194,10 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
               _isSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
               color: _isSaved ? primary : null,
             ),
-            tooltip: 'Save Scan',
-            onPressed: _save,
+            tooltip: widget.treeId == null
+                ? 'Save Scan'
+                : 'Save scan and update this tree',
+            onPressed: _isSaving ? null : _save,
           ),
           const SizedBox(width: 8),
         ],
@@ -466,6 +483,42 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: widget.treeId == null
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _finishScan,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.done_rounded),
+                    label: Text(_isSaving ? 'Saving tree count...' : 'Done'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 

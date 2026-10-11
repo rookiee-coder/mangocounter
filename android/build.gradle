@@ -13,6 +13,13 @@ subprojects { project ->
     def configureNamespace = {
         if (project.hasProperty('android')) {
             project.android {
+                // Apply after each plugin's own build script so Java and
+                // Kotlin compilation consistently target the JDK Flutter uses.
+                compileSdk 36
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
                 if (namespace == null || namespace.isEmpty()) {
                     def manifestFile = project.file("src/main/AndroidManifest.xml")
                     if (manifestFile.exists()) {
@@ -45,6 +52,14 @@ subprojects { project ->
 
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+subprojects { project ->
+    project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
 }
 
 tasks.register("clean", Delete) {

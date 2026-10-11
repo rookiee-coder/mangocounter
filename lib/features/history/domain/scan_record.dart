@@ -3,30 +3,34 @@ import '../../detection/domain/detection.dart';
 
 class ScanRecord {
   final String id;
+
+  /// Orchard tree associated with this scan, when one was selected.
+  final String? treeId;
   final int createdAt;
   final String imagePath;
   final int imageWidth;
   final int imageHeight;
-  
+
   final int modelHalfRipe;
   final int modelRipe;
   final int modelUnripe;
-  
+
   final int? editedHalfRipe;
   final int? editedRipe;
   final int? editedUnripe;
   final int? actualCount;
-  
+
   final double confThreshold;
   final double iouThreshold;
   final int inferenceMs;
   final bool isDemo;
-  
+
   final List<Detection> detections;
   final List<Detection> modelDetections;
 
   ScanRecord({
     required this.id,
+    this.treeId,
     required this.createdAt,
     required this.imagePath,
     required this.imageWidth,
@@ -45,7 +49,7 @@ class ScanRecord {
     required this.detections,
     required this.modelDetections,
   });
-  
+
   int get currentOverRipe => editedHalfRipe ?? modelHalfRipe;
   int get currentHalfRipe => currentOverRipe;
   int get modelOverRipe => modelHalfRipe;
@@ -55,7 +59,7 @@ class ScanRecord {
   int get currentTotal => currentOverRipe + currentRipe + currentUnripe;
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'id': id,
       'created_at': createdAt,
       'image_path': imagePath,
@@ -73,13 +77,17 @@ class ScanRecord {
       'inference_ms': inferenceMs,
       'is_demo': isDemo ? 1 : 0,
       'detections_json': jsonEncode(detections.map((d) => d.toJson()).toList()),
-      'model_detections_json': jsonEncode(modelDetections.map((d) => d.toJson()).toList()),
+      'model_detections_json':
+          jsonEncode(modelDetections.map((d) => d.toJson()).toList()),
     };
+    if (treeId != null) map['tree_id'] = treeId;
+    return map;
   }
 
   factory ScanRecord.fromMap(Map<String, dynamic> map) {
     return ScanRecord(
       id: map['id'],
+      treeId: map['tree_id'] as String?,
       createdAt: map['created_at'],
       imagePath: map['image_path'],
       imageWidth: map['image_width'],

@@ -3,7 +3,7 @@ import 'package:path/path.dart';
 
 class HistoryDatabase {
   static Database? _database;
-  
+
   static Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('mangocount_history.db');
@@ -16,7 +16,7 @@ class HistoryDatabase {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -26,6 +26,7 @@ class HistoryDatabase {
     await db.execute('''
       CREATE TABLE scans (
         id TEXT PRIMARY KEY,
+        tree_id TEXT,
         created_at INTEGER,
         image_path TEXT,
         image_width INTEGER,
@@ -47,7 +48,10 @@ class HistoryDatabase {
     ''');
   }
 
-  static Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    // Handle migrations here
+  static Future<void> _upgradeDB(
+      Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE scans ADD COLUMN tree_id TEXT');
+    }
   }
 }

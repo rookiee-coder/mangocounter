@@ -25,11 +25,13 @@ import '../../chat/presentation/chat_screen.dart';
 class ResultScreen extends ConsumerStatefulWidget {
   final Uint8List imageBytes;
   final String originalPath;
+  final String? treeId;
 
   const ResultScreen({
     super.key,
     required this.imageBytes,
     required this.originalPath,
+    this.treeId,
   });
 
   @override
@@ -67,6 +69,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   final TextEditingController _actualCountCtrl = TextEditingController();
   img.Image? _cachedOrientedImage;
   bool _isSaving = false;
+  bool _hasSaved = false;
 
   img.Image? _getOrientedImage() {
     if (_cachedOrientedImage != null) return _cachedOrientedImage;
@@ -648,8 +651,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   Future<void> _save() async {
     final state = ref.read(detectionControllerProvider);
-    if (state.result == null || _isSaving) return;
-    _isSaving = true;
+    if (state.result == null || _isSaving || _hasSaved) return;
+    setState(() => _isSaving = true);
     try {
       final id = const Uuid().v4();
       final directory = await getApplicationDocumentsDirectory();
@@ -673,6 +676,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
       final record = ScanRecord(
         id: id,
+        treeId: widget.treeId,
         createdAt: DateTime.now().millisecondsSinceEpoch,
         imagePath: savedPath,
         imageWidth: state.result!.imageWidth,
@@ -693,6 +697,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       );
 
       await ref.read(historyProvider.notifier).addScan(record);
+      _hasSaved = true;
 
       if (actualCount != null) {
         final yoloCount = state.result?.detections.length ?? 0;
@@ -709,8 +714,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Harvest scan saved to history! 💾'),
+          SnackBar(
+            content: Text(widget.treeId == null
+                ? 'Harvest scan saved to history! 💾'
+                : 'Scan saved and tree count updated! 💾'),
             backgroundColor: AppColors.primaryGreen,
           ),
         );
@@ -723,8 +730,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         );
       }
     } finally {
-      _isSaving = false;
+      if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _finishScan() async {
+    if (!_hasSaved) await _save();
+    if (mounted && _hasSaved) Navigator.of(context).pop();
   }
 
   Future<void> _appendEvaluationLog({
@@ -928,8 +940,12 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
           // Save button
           IconButton(
-            icon: const Icon(Icons.bookmark_add_outlined),
-            tooltip: 'Save Scan',
+            icon: Icon(_hasSaved
+                ? Icons.bookmark
+                : Icons.bookmark_add_outlined),
+            tooltip: widget.treeId == null
+                ? 'Save Scan'
+                : 'Save scan and update this tree',
             onPressed: _save,
           ),
           const SizedBox(width: 8),
@@ -1068,6 +1084,42 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: widget.treeId == null
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _finishScan,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.done_rounded),
+                    label: Text(_isSaving ? 'Saving tree count...' : 'Done'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      foregroundColor: Colors.white,
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 

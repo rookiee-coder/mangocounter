@@ -116,7 +116,7 @@ class AppTheme {
           fontFamilyFallback: ['Georgia', 'serif'],
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surfaceWhite,
         elevation: 0,
         shape: AppShapes.leafCutShape.copyWith(
