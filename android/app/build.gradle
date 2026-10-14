@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "com.example.mangocounter"
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    // All native plugins require this version; Android NDK releases are
+    // backward compatible for the plugin toolchains used by this app.
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8

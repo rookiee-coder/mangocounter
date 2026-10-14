@@ -7,17 +7,23 @@ class AppColors {
   // Light Mode Palette (Stitch "AgriPrecision Botanical" White & Green Accent)
   static const Color canvasCream = Color(0xFFFFFFFF); // Clean White Canvas
   static const Color surfaceWhite = Color(0xFFFFFFFF); // Pure White Surface
-  static const Color primaryGreen = Color(0xFF1F5D3F); // Deep Botanical Green Accent
-  static const Color primaryGreenLight = Color(0xFF2E7D32); // Vibrant Shoot Green
+  static const Color primaryGreen =
+      Color(0xFF1F5D3F); // Deep Botanical Green Accent
+  static const Color primaryGreenLight =
+      Color(0xFF2E7D32); // Vibrant Shoot Green
   static const Color ripeAmber = Color(0xFFF59E1B); // Harvest Ripe Amber
   static const Color unripeGreen = Color(0xFF5FA84A); // Vegetative Shoot Green
   static const Color overRipeEarth = Color(0xFF865300); // Earth Warm Amber
-  static const Color charcoalText = Color(0xFF1B2A21); // Archival Evergreen-Charcoal
-  static const Color mutedGraphite = Color(0xFF5E6F63); // Field Note Secondary Graphite
+  static const Color charcoalText =
+      Color(0xFF1B2A21); // Archival Evergreen-Charcoal
+  static const Color mutedGraphite =
+      Color(0xFF5E6F63); // Field Note Secondary Graphite
   static const Color errorCrimson = Color(0xFFC0392B); // High-vis Crimson
   static const Color outlineTint = Color(0xFFD5E7D9); // Hairline division
-  static const Color surfaceContainer = Color(0xFFE8F5E9); // Botanical Soft Green Container
-  static const Color surfaceContainerLow = Color(0xFFF4F9F5); // Crisp Light Botanical Surface
+  static const Color surfaceContainer =
+      Color(0xFFE8F5E9); // Botanical Soft Green Container
+  static const Color surfaceContainerLow =
+      Color(0xFFF4F9F5); // Crisp Light Botanical Surface
 
   // Sunset Action Gradient: Reserved for primary capture actions & highlight gauges
   static const LinearGradient sunsetGradient = LinearGradient(
@@ -116,7 +122,7 @@ class AppTheme {
           fontFamilyFallback: ['Georgia', 'serif'],
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: AppColors.surfaceWhite,
         elevation: 0,
         shape: AppShapes.leafCutShape.copyWith(
@@ -175,7 +181,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFFF4F9F5),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0x261F5D3F)),
@@ -186,9 +193,11 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.8),
+          borderSide:
+              const BorderSide(color: AppColors.primaryGreen, width: 1.8),
         ),
-        labelStyle: const TextStyle(color: AppColors.mutedGraphite, fontSize: 13),
+        labelStyle:
+            const TextStyle(color: AppColors.mutedGraphite, fontSize: 13),
       ),
     );
   }
