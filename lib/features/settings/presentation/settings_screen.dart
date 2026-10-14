@@ -218,6 +218,10 @@ class SettingsScreen extends ConsumerWidget {
                             const SizedBox(height: 14),
                             TextField(
                               controller: ctrl,
+                              obscureText: true,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              keyboardType: TextInputType.visiblePassword,
                               decoration: const InputDecoration(
                                 labelText: 'Gemini API Key',
                                 hintText: 'AIzaSy...',

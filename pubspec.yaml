@@ -48,6 +48,7 @@ dependencies:
   uuid: ^4.6.0
   csv: ^6.0.0
   shared_preferences: ^2.5.3
+  flutter_secure_storage: ^9.2.4
   http: ^1.6.0
   archive: ^4.3.0
   get_thumbnail_video: ^0.6.1

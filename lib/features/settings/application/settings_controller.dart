@@ -1,7 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) => throw UnimplementedError());
+final sharedPreferencesProvider =
+    Provider<SharedPreferences>((ref) => throw UnimplementedError());
+
+final secureStorageProvider = Provider<FlutterSecureStorage>(
+  (ref) => const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  ),
+);
 
 class SettingsState {
   final double confThreshold;
@@ -21,9 +29,11 @@ class SettingsState {
     this.iouThreshold = 0.45,
     this.showLabels = true,
     this.maxResolution = 1920,
-    this.geminiApiKey = const String.fromEnvironment('GEMINI_API_KEY', defaultValue: ''),
+    this.geminiApiKey =
+        const String.fromEnvironment('GEMINI_API_KEY', defaultValue: ''),
     this.grokApiKey = '',
-    this.openRouterApiKey = const String.fromEnvironment('OPENROUTER_API_KEY', defaultValue: ''),
+    this.openRouterApiKey =
+        const String.fromEnvironment('OPENROUTER_API_KEY', defaultValue: ''),
     this.aiProvider = 'gemini',
     this.autoAiAssist = true,
     this.autoConfidence = true,
@@ -61,24 +71,51 @@ class SettingsState {
 
 class SettingsController extends StateNotifier<SettingsState> {
   final SharedPreferences prefs;
+  final FlutterSecureStorage secureStorage;
+  static const _geminiApiKeyStorageKey = 'geminiApiKey';
 
-  SettingsController(this.prefs) : super(SettingsState(
-    confThreshold: prefs.getDouble('confThreshold') ?? 0.25,
-    iouThreshold: prefs.getDouble('iouThreshold') ?? 0.45,
-    showLabels: prefs.getBool('showLabels') ?? true,
-    maxResolution: prefs.getInt('maxResolution') ?? 1920,
-    geminiApiKey: (prefs.getString('geminiApiKey')?.trim().isNotEmpty ?? false)
-        ? prefs.getString('geminiApiKey')!
-        : const String.fromEnvironment('GEMINI_API_KEY', defaultValue: ''),
-    grokApiKey: prefs.getString('grokApiKey') ?? '',
-    openRouterApiKey: (prefs.getString('openRouterApiKey')?.trim().isNotEmpty ?? false)
-        ? prefs.getString('openRouterApiKey')!
-        : const String.fromEnvironment('OPENROUTER_API_KEY', defaultValue: ''),
-    aiProvider: prefs.getString('aiProvider') ?? 'gemini',
-    autoAiAssist: prefs.getBool('autoAiAssist') ?? true,
-    autoConfidence: prefs.getBool('autoConfidence') ?? true,
-    tiledInference: prefs.getBool('tiledInference') ?? true,
-  ));
+  SettingsController(this.prefs, this.secureStorage)
+      : super(SettingsState(
+          confThreshold: prefs.getDouble('confThreshold') ?? 0.25,
+          iouThreshold: prefs.getDouble('iouThreshold') ?? 0.45,
+          showLabels: prefs.getBool('showLabels') ?? true,
+          maxResolution: prefs.getInt('maxResolution') ?? 1920,
+          geminiApiKey:
+              const String.fromEnvironment('GEMINI_API_KEY', defaultValue: ''),
+          grokApiKey: prefs.getString('grokApiKey') ?? '',
+          openRouterApiKey:
+              (prefs.getString('openRouterApiKey')?.trim().isNotEmpty ?? false)
+                  ? prefs.getString('openRouterApiKey')!
+                  : const String.fromEnvironment('OPENROUTER_API_KEY',
+                      defaultValue: ''),
+          aiProvider: prefs.getString('aiProvider') ?? 'gemini',
+          autoAiAssist: prefs.getBool('autoAiAssist') ?? true,
+          autoConfidence: prefs.getBool('autoConfidence') ?? true,
+          tiledInference: prefs.getBool('tiledInference') ?? true,
+        )) {
+    _restoreGeminiApiKey();
+  }
+
+  Future<void> _restoreGeminiApiKey() async {
+    try {
+      final secured = await secureStorage.read(key: _geminiApiKeyStorageKey);
+      if (secured?.trim().isNotEmpty == true) {
+        state = state.copyWith(geminiApiKey: secured!.trim());
+        return;
+      }
+
+      // One-time migration from previous releases that used plain preferences.
+      final legacy = prefs.getString(_geminiApiKeyStorageKey)?.trim();
+      if (legacy?.isNotEmpty == true) {
+        await secureStorage.write(key: _geminiApiKeyStorageKey, value: legacy);
+        await prefs.remove(_geminiApiKeyStorageKey);
+        state = state.copyWith(geminiApiKey: legacy!);
+      }
+    } catch (_) {
+      // Keep the app usable with its build-time key when secure storage is
+      // temporarily unavailable on a device.
+    }
+  }
 
   void updateTiledInference(bool val) {
     state = state.copyWith(tiledInference: val);
@@ -110,9 +147,16 @@ class SettingsController extends StateNotifier<SettingsState> {
     prefs.setInt('maxResolution', val);
   }
 
-  void updateGeminiApiKey(String val) {
-    state = state.copyWith(geminiApiKey: val);
-    prefs.setString('geminiApiKey', val);
+  Future<void> updateGeminiApiKey(String val) async {
+    final normalized = val.trim();
+    state = state.copyWith(geminiApiKey: normalized);
+    if (normalized.isEmpty) {
+      await secureStorage.delete(key: _geminiApiKeyStorageKey);
+    } else {
+      await secureStorage.write(
+          key: _geminiApiKeyStorageKey, value: normalized);
+    }
+    await prefs.remove(_geminiApiKeyStorageKey);
   }
 
   void updateGrokApiKey(String val) {
@@ -136,7 +180,9 @@ class SettingsController extends StateNotifier<SettingsState> {
   }
 }
 
-final settingsProvider = StateNotifierProvider<SettingsController, SettingsState>((ref) {
+final settingsProvider =
+    StateNotifierProvider<SettingsController, SettingsState>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return SettingsController(prefs);
+  final secureStorage = ref.watch(secureStorageProvider);
+  return SettingsController(prefs, secureStorage);
 });
