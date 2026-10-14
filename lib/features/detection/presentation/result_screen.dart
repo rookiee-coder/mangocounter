@@ -866,6 +866,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     final int totalCount = _filteredDetections.length;
     final int aiVerifiedCount =
         _filteredDetections.where((d) => d.aiVerified).length;
+    final int lowConfidenceCount =
+        _filteredDetections.where((d) => d.confidence < 0.5).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -940,9 +942,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
           // Save button
           IconButton(
-            icon: Icon(_hasSaved
-                ? Icons.bookmark
-                : Icons.bookmark_add_outlined),
+            icon:
+                Icon(_hasSaved ? Icons.bookmark : Icons.bookmark_add_outlined),
             tooltip: widget.treeId == null
                 ? 'Save Scan'
                 : 'Save scan and update this tree',
@@ -1034,6 +1035,30 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                     color: Color(0xFFBF360C),
                     fontWeight: FontWeight.bold,
                     fontSize: 11),
+              ),
+            ),
+
+          if (lowConfidenceCount > 0)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              color: const Color(0xFFFFF3D6),
+              child: Row(
+                children: [
+                  const Icon(Icons.fact_check_outlined,
+                      color: Color(0xFF9A6500), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$lowConfidenceCount detection${lowConfidenceCount == 1 ? '' : 's'} below 50% confidence. Review the marked fruit before saving.',
+                      style: const TextStyle(
+                        color: Color(0xFF704B00),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 

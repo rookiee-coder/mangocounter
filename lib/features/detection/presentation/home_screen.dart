@@ -31,6 +31,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isProcessing = false;
   String? _selectedTreeId;
+  Set<String> _activeTreeIds = {
+    for (var lane = 1; lane <= 3; lane++)
+      for (var tree = 1; tree <= 3; tree++) 'lane_${lane}_tree_$tree',
+  };
+
+  void _updateActiveTreeIds(Set<String> treeIds) {
+    if (_activeTreeIds.length == treeIds.length &&
+        _activeTreeIds.containsAll(treeIds)) {
+      return;
+    }
+    if (mounted) setState(() => _activeTreeIds = treeIds);
+  }
 
   Future<void> _pickImage(ImageSource source, {required String treeId}) async {
     if (source == ImageSource.camera) {
@@ -465,6 +477,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (sheetContext) => OrchardTreeDetailsSheet(
         tree: tree,
         latestScan: _latestScanForTree(tree.id, scans),
+        scanHistory: (scans.where((scan) => scan.treeId == tree.id).toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt)))
+            .skip(1)
+            .take(4)
+            .toList(),
         onCameraScan: () {
           Navigator.pop(sheetContext);
           _pickImage(ImageSource.camera, treeId: tree.id);
@@ -772,6 +789,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   scans: scans,
                   selectedTreeId: _selectedTreeId,
                   onTreeSelected: (tree) => _openTreeDetails(tree, scans),
+                  onActiveTreeIdsChanged: _updateActiveTreeIds,
                 ),
                 loading: () => const SizedBox(
                   height: 140,
@@ -781,6 +799,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   scans: const [],
                   selectedTreeId: _selectedTreeId,
                   onTreeSelected: (tree) => _openTreeDetails(tree, const []),
+                  onActiveTreeIdsChanged: _updateActiveTreeIds,
                 ),
               ),
 
@@ -790,14 +809,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   final totalScans = scans.length;
                   int totalFruit = 0;
                   int ripeFruit = 0;
+                  final latestActiveScans = <String, ScanRecord>{};
 
                   for (final s in scans) {
-                    final r = s.editedRipe ?? s.modelRipe;
-                    final u = s.editedUnripe ?? s.modelUnripe;
-                    final o = s.editedHalfRipe ?? s.modelHalfRipe;
-                    ripeFruit += r;
-                    totalFruit += (r + u + o);
+                    final treeId = s.treeId;
+                    if (treeId == null || !_activeTreeIds.contains(treeId)) {
+                      continue;
+                    }
+                    final previous = latestActiveScans[treeId];
+                    if (previous == null || s.createdAt > previous.createdAt) {
+                      latestActiveScans[treeId] = s;
+                    }
                   }
+
+                  for (final scan in latestActiveScans.values) {
+                    ripeFruit += scan.currentRipe;
+                    totalFruit += scan.currentTotal;
+                  }
+                  final scannedTreeCount = latestActiveScans.length;
+                  final activeTreeCount = _activeTreeIds.length;
 
                   return Container(
                     padding: const EdgeInsets.all(18),
@@ -887,6 +917,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(Icons.park_outlined, size: 15, color: primary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Trees scanned: $scannedTreeCount of $activeTreeCount',
+                                style: TextStyle(
+                                  color: text,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${(activeTreeCount - scannedTreeCount).clamp(0, activeTreeCount)} remaining',
+                              style: TextStyle(color: muted, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: activeTreeCount == 0
+                                ? 0
+                                : scannedTreeCount / activeTreeCount,
+                            minHeight: 6,
+                            backgroundColor: primary.withOpacity(0.12),
+                            valueColor: AlwaysStoppedAnimation<Color>(primary),
+                          ),
                         ),
                       ],
                     ),

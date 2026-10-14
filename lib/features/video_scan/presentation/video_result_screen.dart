@@ -147,6 +147,10 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
 
     final frames = widget.result.frames;
     final curFrame = frames.isNotEmpty ? frames[_selectedFrameIndex] : null;
+    final lowConfidenceCount = curFrame?.detections
+            .where((detection) => detection.confidence < 0.5)
+            .length ??
+        0;
 
     return Scaffold(
       backgroundColor: background,
@@ -205,6 +209,21 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (lowConfidenceCount > 0)
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                color: const Color(0xFFFFF3D6),
+                child: Text(
+                  '$lowConfidenceCount detection${lowConfidenceCount == 1 ? '' : 's'} below 50% confidence in this frame. Check the selected frame before saving.',
+                  style: const TextStyle(
+                    color: Color(0xFF704B00),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             // Top Frame Viewer with Detection Overlay
             Expanded(
               flex: 5,

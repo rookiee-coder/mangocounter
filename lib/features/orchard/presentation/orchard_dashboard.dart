@@ -57,12 +57,14 @@ class OrchardDashboard extends StatefulWidget {
   final List<ScanRecord> scans;
   final String? selectedTreeId;
   final ValueChanged<OrchardTreeRef> onTreeSelected;
+  final ValueChanged<Set<String>> onActiveTreeIdsChanged;
 
   const OrchardDashboard({
     super.key,
     required this.scans,
     required this.selectedTreeId,
     required this.onTreeSelected,
+    required this.onActiveTreeIdsChanged,
   });
 
   @override
@@ -105,6 +107,7 @@ class _OrchardDashboardState extends State<OrchardDashboard> {
       _removedTreeIds = removedTrees.toSet();
       _removedLaneIds = removedLanes ?? {};
     });
+    _notifyActiveTreesChanged();
   }
 
   Future<void> _saveLayout() async {
@@ -116,6 +119,16 @@ class _OrchardDashboardState extends State<OrchardDashboard> {
     await prefs.setStringList(_removedTreesKey, _removedTreeIds.toList());
     await prefs.setStringList(
         _removedLanesKey, _removedLaneIds.map((lane) => '$lane').toList());
+    if (mounted) _notifyActiveTreesChanged();
+  }
+
+  void _notifyActiveTreesChanged() {
+    final activeTrees = OrchardTreeRef.fromLayout(
+      _treesPerLane,
+      removedTreeIds: _removedTreeIds,
+      removedLaneIds: _removedLaneIds,
+    );
+    widget.onActiveTreeIdsChanged(activeTrees.map((tree) => tree.id).toSet());
   }
 
   List<int> get _activeLaneIds => [
@@ -737,8 +750,30 @@ class _OrchardPainter extends CustomPainter {
     final topRightY = 97.0 + extraTrees * 14 - extraLanes * 57;
     final bottomRightX = 288.0 + extraTrees * 86;
     final bottomRightY = 269.0 + extraTrees * 14;
+    final minScale = math.min(sx, sy);
     final bg = Paint()..color = const Color(0xFF819C58);
     canvas.drawRect(Offset.zero & size, bg);
+    // Fine, deterministic ground variation makes the field feel less flat
+    // without introducing noisy repaint-to-repaint changes.
+    final groundRandom = math.Random(731);
+    for (var i = 0; i < 360; i++) {
+      final point = Offset(
+        groundRandom.nextDouble() * size.width,
+        groundRandom.nextDouble() * size.height,
+      );
+      final length = (1.2 + groundRandom.nextDouble() * 2.2) * minScale;
+      final shade = i.isEven
+          ? const Color(0xFFB7C77A).withOpacity(0.19)
+          : const Color(0xFF435D36).withOpacity(0.13);
+      canvas.drawLine(
+        point,
+        point.translate(length, -length * 0.35),
+        Paint()
+          ..color = shade
+          ..strokeWidth = 0.7 * minScale
+          ..strokeCap = StrokeCap.round,
+      );
+    }
 
     final field = Path()
       ..moveTo(p(12, 228).dx, p(12, 228).dy)
@@ -760,6 +795,27 @@ class _OrchardPainter extends CustomPainter {
       ..close();
     canvas.drawPath(interior, Paint()..color = const Color(0xFF78934F));
 
+    canvas.save();
+    canvas.clipPath(interior);
+    final soilRandom = math.Random(218);
+    for (var i = 0; i < 110; i++) {
+      final x = 24 + soilRandom.nextDouble() * (designWidth - 32);
+      final y = 25 + soilRandom.nextDouble() * (designHeight - 34);
+      final radius = (1.5 + soilRandom.nextDouble() * 4) * minScale;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: p(x, y),
+          width: radius * 1.7,
+          height: radius,
+        ),
+        Paint()
+          ..color =
+              (i.isEven ? const Color(0xFFA6B96C) : const Color(0xFF526F3D))
+                  .withOpacity(0.11),
+      );
+    }
+    canvas.restore();
+
     // Isometric planting lanes and pale tractor paths.
     for (var lane = 0; lane <= laneCount; lane++) {
       final start = p(28 + lane * 31, 217 - lane * 57);
@@ -773,19 +829,33 @@ class _OrchardPainter extends CustomPainter {
       canvas.drawPath(
         path,
         Paint()
-          ..color = const Color(0xFFC8B487).withOpacity(0.88)
-          ..strokeWidth = 7 * math.min(sx, sy)
-          ..strokeCap = StrokeCap.butt,
+          ..color = const Color(0xFF776746).withOpacity(0.42)
+          ..strokeWidth = 12 * minScale
+          ..strokeCap = StrokeCap.round,
       );
-      final inner = Path()
-        ..moveTo(start.dx, start.dy - 2 * sy)
-        ..lineTo(end.dx, end.dy - 2 * sy);
       canvas.drawPath(
-        inner,
+        path,
         Paint()
-          ..color = const Color(0xFFE1D0A5).withOpacity(0.55)
-          ..strokeWidth = 1 * math.min(sx, sy),
+          ..color = const Color(0xFFC5AE7C)
+          ..strokeWidth = 9 * minScale
+          ..strokeCap = StrokeCap.round,
       );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFFE4D3A8).withOpacity(0.72)
+          ..strokeWidth = 2.2 * minScale
+          ..strokeCap = StrokeCap.round,
+      );
+      // Light tire marks repeat along the track direction.
+      for (var mark = 1; mark < 12; mark++) {
+        final point = Offset.lerp(start, end, mark / 12)!;
+        canvas.drawCircle(
+          point,
+          0.75 * minScale,
+          Paint()..color = const Color(0xFF8D7954).withOpacity(0.58),
+        );
+      }
     }
     for (var lane = 0; lane < laneCount; lane++) {
       _drawLabel(
@@ -818,14 +888,30 @@ class _OrchardPainter extends CustomPainter {
     );
     _drawLabel(
         canvas, 'N', p(topRightX - 15, topRightY - 10), 7 * math.min(sx, sy));
-    for (final point in [
+    final boundary = [
       p(12, 228),
       p(topLeftX, topLeftY),
       p(topRightX, topRightY),
       p(bottomRightX, bottomRightY),
-    ]) {
-      canvas.drawCircle(point, 1.6 * math.min(sx, sy),
-          Paint()..color = const Color(0xFFF3E4BB));
+    ];
+    for (var edge = 0; edge < boundary.length; edge++) {
+      final from = boundary[edge];
+      final to = boundary[(edge + 1) % boundary.length];
+      for (var stake = 0; stake <= 12; stake++) {
+        final point = Offset.lerp(from, to, stake / 12)!;
+        canvas.drawCircle(
+          point,
+          (stake % 3 == 0 ? 1.8 : 1.1) * minScale,
+          Paint()..color = const Color(0xFFF3E4BB),
+        );
+        if (stake % 3 == 0) {
+          canvas.drawCircle(
+            point.translate(0.6 * minScale, 0.8 * minScale),
+            1.8 * minScale,
+            Paint()..color = const Color(0xFF34452D).withOpacity(0.36),
+          );
+        }
+      }
     }
   }
 
@@ -879,7 +965,15 @@ class _TreePainter extends CustomPainter {
     final s = size.width / 92;
     final center = Offset(size.width * 0.5, size.height * 0.42);
     final crown = 31 * s;
-    final ground = Paint()..color = const Color(0xFF4B5730).withOpacity(0.4);
+    final ground = Paint()..color = const Color(0xFF35442A).withOpacity(0.32);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(center.dx + 11 * s, size.height * 0.9),
+        width: 82 * s,
+        height: 20 * s,
+      ),
+      Paint()..color = const Color(0xFF273B27).withOpacity(0.16),
+    );
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(center.dx + 8 * s, size.height * 0.89),
@@ -896,6 +990,20 @@ class _TreePainter extends CustomPainter {
       ..lineTo(center.dx - 5 * s, size.height * 0.91)
       ..close();
     canvas.drawPath(trunk, Paint()..color = const Color(0xFF69462D));
+    canvas.drawLine(
+      Offset(center.dx - 1.5 * s, center.dy + 22 * s),
+      Offset(center.dx - 2.2 * s, size.height * 0.87),
+      Paint()
+        ..color = const Color(0xFFB07B4D).withOpacity(0.68)
+        ..strokeWidth = 1.4 * s,
+    );
+    canvas.drawLine(
+      Offset(center.dx + 3 * s, center.dy + 24 * s),
+      Offset(center.dx + 4 * s, size.height * 0.88),
+      Paint()
+        ..color = const Color(0xFF412F24).withOpacity(0.7)
+        ..strokeWidth = 1.2 * s,
+    );
     canvas.drawLine(
         center,
         Offset(center.dx - 14 * s, center.dy + 8 * s),
@@ -919,29 +1027,59 @@ class _TreePainter extends CustomPainter {
     );
     canvas.drawCircle(
         center, crown + 2 * s, Paint()..color = const Color(0xFF174A31));
+    canvas.drawCircle(
+      center.translate(-5 * s, -8 * s),
+      crown * 0.92,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(-0.45, -0.55),
+          radius: 1.15,
+          colors: [Color(0xFF5C984E), Color(0xFF347343), Color(0xFF174A31)],
+          stops: [0, 0.54, 1],
+        ).createShader(Rect.fromCircle(center: center, radius: crown * 1.2)),
+    );
 
-    // Irregular layered foliage and small highlights create a fuller canopy.
+    // A scalloped perimeter and layered leaf clusters break the perfect-circle
+    // silhouette into a fuller, more natural canopy.
     final random = math.Random(seed);
-    for (var i = 0; i < 18; i++) {
-      final angle = i * math.pi * 2 / 18;
-      final radius = crown * (0.25 + random.nextDouble() * 0.48);
+    final foliageShades = [
+      const Color(0xFF28633B),
+      const Color(0xFF367642),
+      const Color(0xFF4B8547),
+      const Color(0xFF215638),
+      const Color(0xFF59904B),
+    ];
+    for (var i = 0; i < 26; i++) {
+      final angle = i * math.pi * 2 / 26;
+      final radius = crown * (0.73 + random.nextDouble() * 0.1);
       final leafCenter = center.translate(
-        math.cos(angle) * radius,
-        math.sin(angle) * radius * 0.78,
+        math.cos(angle) * radius * 0.94,
+        math.sin(angle) * radius * 0.77,
       );
-      final leafRadius = (5.5 + random.nextDouble() * 4.5) * s;
-      final shades = [
-        const Color(0xFF28633B),
-        const Color(0xFF367642),
-        const Color(0xFF4B8547),
-        const Color(0xFF215638),
-      ];
+      final leafRadius = (7 + random.nextDouble() * 3) * s;
       canvas.drawCircle(
-          leafCenter, leafRadius, Paint()..color = shades[i % shades.length]);
+        leafCenter.translate(1.2 * s, 1.5 * s),
+        leafRadius,
+        Paint()..color = const Color(0xFF153D2B).withOpacity(0.34),
+      );
+      canvas.drawCircle(leafCenter, leafRadius,
+          Paint()..color = foliageShades[i % foliageShades.length]);
       canvas.drawCircle(
         leafCenter.translate(-leafRadius * 0.22, -leafRadius * 0.28),
-        leafRadius * 0.25,
-        Paint()..color = const Color(0xFF9DBD62).withOpacity(0.6),
+        leafRadius * 0.3,
+        Paint()..color = const Color(0xFFA4C76A).withOpacity(0.48),
+      );
+    }
+
+    // Fine branch glints show through the leaves and connect the crown to its
+    // trunk, adding depth without obscuring the fruit marks.
+    for (var branch = -1; branch <= 1; branch++) {
+      canvas.drawLine(
+        Offset(center.dx, center.dy + 16 * s),
+        Offset(center.dx + branch * 15 * s, center.dy - 5 * s),
+        Paint()
+          ..color = const Color(0xFF9B7447).withOpacity(0.32)
+          ..strokeWidth = 1.3 * s,
       );
     }
 
@@ -956,17 +1094,31 @@ class _TreePainter extends CustomPainter {
       canvas.save();
       canvas.translate(fruit.dx, fruit.dy);
       canvas.rotate(-0.3);
+      final fruitColors = [
+        const Color(0xFFF4C64F),
+        const Color(0xFFFFD45D),
+        const Color(0xFFE8AA36),
+        const Color(0xFFBFD15B),
+      ];
       canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: 5.5 * s, height: 8 * s),
-        Paint()..color = const Color(0xFFF4C64F),
+        Rect.fromCenter(center: Offset.zero, width: 6.1 * s, height: 8.6 * s),
+        Paint()..color = fruitColors[(i + seed) % fruitColors.length],
       );
       canvas.drawOval(
         Rect.fromCenter(
-          center: Offset(-1.1 * s, -1.2 * s),
-          width: 1.4 * s,
-          height: 3.4 * s,
+          center: Offset(-1.3 * s, -1.6 * s),
+          width: 1.5 * s,
+          height: 3.8 * s,
         ),
         Paint()..color = const Color(0xFFFFE78E),
+      );
+      canvas.drawLine(
+        Offset(0, -4 * s),
+        Offset(0.7 * s, -5.2 * s),
+        Paint()
+          ..color = const Color(0xFF47633A)
+          ..strokeWidth = 0.8 * s
+          ..strokeCap = StrokeCap.round,
       );
       canvas.restore();
     }
@@ -1008,6 +1160,7 @@ class _TreePainter extends CustomPainter {
 class OrchardTreeDetailsSheet extends StatelessWidget {
   final OrchardTreeRef tree;
   final ScanRecord? latestScan;
+  final List<ScanRecord> scanHistory;
   final VoidCallback onCameraScan;
   final VoidCallback onGalleryScan;
   final VoidCallback onVideoScan;
@@ -1016,6 +1169,7 @@ class OrchardTreeDetailsSheet extends StatelessWidget {
     super.key,
     required this.tree,
     required this.latestScan,
+    required this.scanHistory,
     required this.onCameraScan,
     required this.onGalleryScan,
     required this.onVideoScan,
@@ -1137,6 +1291,50 @@ class OrchardTreeDetailsSheet extends StatelessWidget {
                       ],
                     ),
             ),
+            if (scanHistory.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text(
+                'RECENT TREE SCANS',
+                style: TextStyle(
+                  color: AppColors.mutedGraphite,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              ...scanHistory.map((pastScan) {
+                final scannedAt = DateTime.fromMillisecondsSinceEpoch(
+                  pastScan.createdAt,
+                ).toLocal();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.history_rounded,
+                          size: 15, color: AppColors.mutedGraphite),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          '${scannedAt.month}/${scannedAt.day}/${scannedAt.year}',
+                          style: const TextStyle(
+                              color: AppColors.mutedGraphite, fontSize: 12),
+                        ),
+                      ),
+                      Text(
+                        '${pastScan.currentTotal} mangoes',
+                        style: const TextStyle(
+                          color: AppColors.primaryGreen,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
             const SizedBox(height: 18),
             const Text(
               'UPDATE TREE COUNT',
