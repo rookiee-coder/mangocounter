@@ -56,7 +56,9 @@ class HistoryController extends StateNotifier<AsyncValue<List<ScanRecord>>> {
   }
 }
 
-final historyProvider = StateNotifierProvider<HistoryController, AsyncValue<List<ScanRecord>>>((ref) {
+final historyProvider =
+    StateNotifierProvider<HistoryController, AsyncValue<List<ScanRecord>>>(
+        (ref) {
   final repo = ref.watch(historyRepositoryProvider);
   return HistoryController(repo);
 });

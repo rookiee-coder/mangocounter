@@ -131,7 +131,10 @@ Tree data: ${jsonEncode(inputTrees)}
         final days = (value['days_until_harvest'] as num?)?.toInt();
         final confidence = (value['confidence'] as num?)?.toDouble();
         final reason = (value['reason'] as String?)?.trim();
-        if (base == null || days == null || confidence == null || reason == null) {
+        if (base == null ||
+            days == null ||
+            confidence == null ||
+            reason == null) {
           continue;
         }
         if (value['needs_rescan'] == true) continue;

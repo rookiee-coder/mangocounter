@@ -27,9 +27,15 @@ enum MangoClass {
   }
 
   static MangoClass fromIndex(int index) {
-    if (index == 0) return MangoClass.over_ripe; // labels.txt index 0: 'Over ripe'
-    if (index == 1) return MangoClass.ripe;      // labels.txt index 1: 'Ripe'
-    if (index == 2) return MangoClass.unripe;    // labels.txt index 2: 'Unripe'
+    if (index == 0) {
+      return MangoClass.over_ripe; // labels.txt index 0: 'Over ripe'
+    }
+    if (index == 1) {
+      return MangoClass.ripe; // labels.txt index 1: 'Ripe'
+    }
+    if (index == 2) {
+      return MangoClass.unripe; // labels.txt index 2: 'Unripe'
+    }
     return MangoClass.unripe; // Fallback
   }
 

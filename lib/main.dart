@@ -11,7 +11,7 @@ import 'features/harvest/data/harvest_notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HarvestNotificationService.instance.initialize();
-  
+
   final prefs = await SharedPreferences.getInstance();
   final db = await HistoryDatabase.database;
   final historyRepo = HistoryRepository(db);

@@ -13,10 +13,11 @@ void main() {
   });
 
   setUp(() async {
-    db = await databaseFactory.openDatabase(inMemoryDatabasePath, options: OpenDatabaseOptions(
-      version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
+    db = await databaseFactory.openDatabase(inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+            version: 1,
+            onCreate: (db, version) async {
+              await db.execute('''
           CREATE TABLE scans (
             id TEXT PRIMARY KEY,
             created_at INTEGER,
@@ -38,8 +39,7 @@ void main() {
             model_detections_json TEXT
           )
         ''');
-      }
-    ));
+            }));
     repo = HistoryRepository(db);
   });
 

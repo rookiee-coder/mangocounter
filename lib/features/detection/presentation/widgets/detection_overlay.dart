@@ -46,7 +46,10 @@ class DetectionOverlay extends StatelessWidget {
             final localY = details.localPosition.dy - offsetY;
 
             // Check if tap was on the image
-            if (localX < 0 || localX > renderW || localY < 0 || localY > renderH) return;
+            if (localX < 0 ||
+                localX > renderW ||
+                localY < 0 ||
+                localY > renderH) return;
 
             final imgX = (localX / scale).clamp(0.0, imageWidth.toDouble());
             final imgY = (localY / scale).clamp(0.0, imageHeight.toDouble());
@@ -75,9 +78,14 @@ class DetectionOverlay extends StatelessWidget {
               ? (details) {
                   final localX = details.localPosition.dx - offsetX;
                   final localY = details.localPosition.dy - offsetY;
-                  if (localX < 0 || localX > renderW || localY < 0 || localY > renderH) return;
-                  final imgX = (localX / scale).clamp(0.0, imageWidth.toDouble());
-                  final imgY = (localY / scale).clamp(0.0, imageHeight.toDouble());
+                  if (localX < 0 ||
+                      localX > renderW ||
+                      localY < 0 ||
+                      localY > renderH) return;
+                  final imgX =
+                      (localX / scale).clamp(0.0, imageWidth.toDouble());
+                  final imgY =
+                      (localY / scale).clamp(0.0, imageHeight.toDouble());
                   onImageLongPress!(imgX, imgY);
                 }
               : null,
@@ -133,7 +141,9 @@ class _OpticalBoxPainter extends CustomPainter {
     for (final det in detections) {
       Color color = AppColors.unripeGreen;
       if (det.mangoClass == MangoClass.ripe) color = AppColors.ripeAmber;
-      if (det.mangoClass == MangoClass.over_ripe) color = AppColors.overRipeEarth;
+      if (det.mangoClass == MangoClass.over_ripe) {
+        color = AppColors.overRipeEarth;
+      }
       if (det.userEdited) color = const Color(0xFF0288D1);
       if (det.needsReview) color = const Color(0xFFE65100);
 
@@ -152,7 +162,8 @@ class _OpticalBoxPainter extends CustomPainter {
         final fillPaint = Paint()
           ..color = color.withOpacity(det.needsReview ? 0.16 : 0.08)
           ..style = PaintingStyle.fill;
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(6)), fillPaint);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(6)), fillPaint);
 
         // 2. Optical Precision Corner Brackets (Surveyor Reticle Tenet)
         final strokePaint = Paint()
@@ -165,34 +176,45 @@ class _OpticalBoxPainter extends CustomPainter {
         final double armHeight = (rect.height * 0.28).clamp(8.0, 20.0);
 
         // Top-Left bracket
-        canvas.drawLine(Offset(rect.left, rect.top), Offset(rect.left + armLength, rect.top), strokePaint);
-        canvas.drawLine(Offset(rect.left, rect.top), Offset(rect.left, rect.top + armHeight), strokePaint);
+        canvas.drawLine(Offset(rect.left, rect.top),
+            Offset(rect.left + armLength, rect.top), strokePaint);
+        canvas.drawLine(Offset(rect.left, rect.top),
+            Offset(rect.left, rect.top + armHeight), strokePaint);
 
         // Top-Right bracket
-        canvas.drawLine(Offset(rect.right, rect.top), Offset(rect.right - armLength, rect.top), strokePaint);
-        canvas.drawLine(Offset(rect.right, rect.top), Offset(rect.right - armHeight, rect.top), strokePaint);
+        canvas.drawLine(Offset(rect.right, rect.top),
+            Offset(rect.right - armLength, rect.top), strokePaint);
+        canvas.drawLine(Offset(rect.right, rect.top),
+            Offset(rect.right - armHeight, rect.top), strokePaint);
 
         // Bottom-Left bracket
-        canvas.drawLine(Offset(rect.left, rect.bottom), Offset(rect.left + armLength, rect.bottom), strokePaint);
-        canvas.drawLine(Offset(rect.left, rect.bottom), Offset(rect.left, rect.bottom - armHeight), strokePaint);
+        canvas.drawLine(Offset(rect.left, rect.bottom),
+            Offset(rect.left + armLength, rect.bottom), strokePaint);
+        canvas.drawLine(Offset(rect.left, rect.bottom),
+            Offset(rect.left, rect.bottom - armHeight), strokePaint);
 
         // Bottom-Right bracket
-        canvas.drawLine(Offset(rect.right, rect.bottom), Offset(rect.right - armLength, rect.bottom), strokePaint);
-        canvas.drawLine(Offset(rect.right, rect.bottom), Offset(rect.right - armHeight, rect.bottom), strokePaint);
+        canvas.drawLine(Offset(rect.right, rect.bottom),
+            Offset(rect.right - armLength, rect.bottom), strokePaint);
+        canvas.drawLine(Offset(rect.right, rect.bottom),
+            Offset(rect.right - armHeight, rect.bottom), strokePaint);
 
         // Hairline boundary guide connecting brackets
         final guidePaint = Paint()
           ..color = color.withOpacity(0.28)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0;
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), guidePaint);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+            guidePaint);
       }
 
       if (showLabels) {
         final aiBadge = det.aiVerified ? ' ✨' : '';
         final reviewBadge = det.needsReview ? ' ❓' : '';
         final confStr = '${(det.confidence * 100).toStringAsFixed(0)}%';
-        final labelText = '${det.mangoClass.displayName}$aiBadge$reviewBadge $confStr';
+        final labelText =
+            '${det.mangoClass.displayName}$aiBadge$reviewBadge $confStr';
 
         final textSpan = TextSpan(
           text: labelText,

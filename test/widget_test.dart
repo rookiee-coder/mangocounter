@@ -5,7 +5,8 @@ import 'package:mangocounter/features/detection/presentation/home_screen.dart';
 import 'package:mangocounter/features/detection/application/detector_provider.dart';
 
 void main() {
-  testWidgets('Demo mode banner shows when model is missing', (WidgetTester tester) async {
+  testWidgets('Demo mode banner shows when model is missing',
+      (WidgetTester tester) async {
     // Override the provider to force demo mode state
     await tester.pumpWidget(
       ProviderScope(
@@ -21,7 +22,10 @@ void main() {
     // Initial pump and settle
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('DEMO MODE: model not found. Results are NOT real.'), findsOneWidget);
+    expect(
+        find.textContaining(
+            'DEMO MODE: model not found. Results are NOT real.'),
+        findsOneWidget);
     expect(find.textContaining('DEMO MODE'), findsOneWidget);
   });
 }

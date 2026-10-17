@@ -24,7 +24,8 @@ void main() {
       confidence: 0.30, // < highConfKeep (0.50)
     );
 
-    test('1. High-conf YOLO box + Gemini says is_mango=false -> box is kept', () {
+    test('1. High-conf YOLO box + Gemini says is_mango=false -> box is kept',
+        () {
       final verdicts = {
         0: const CropVerdict(
           id: 0,
@@ -48,7 +49,7 @@ void main() {
       expect(result.first.aiVerified, isTrue);
     });
 
-    test('2. Low-conf YOLO box + Gemini says is_mango=false -> box removed', () {
+    test('2. Gemini suspected non-mango stays counted for manual review', () {
       final verdicts = {
         0: const CropVerdict(
           id: 0,
@@ -66,10 +67,17 @@ void main() {
         yoloClassKeepConf: 0.60,
       );
 
-      expect(result.isEmpty, isTrue);
+      expect(result.length, 1);
+      expect(result.single.x1, lowConfBox.x1);
+      expect(result.single.mangoClass, lowConfBox.mangoClass);
+      expect(result.single.aiVerified, isTrue);
+      expect(result.single.aiFlaggedNonMango, isTrue);
+      expect(result.single.needsReview, isTrue);
     });
 
-    test('3. Gemini returns unknown/malformed/missing id -> YOLO result unchanged', () {
+    test(
+        '3. Gemini returns unknown/malformed/missing id -> YOLO result unchanged',
+        () {
       // CropVerdicts does not contain verdict for index 0 (e.g. missing id, parse error, timeout)
       final verdicts = <int, CropVerdict>{
         1: const CropVerdict(
@@ -95,7 +103,9 @@ void main() {
       expect(result[0].aiVerified, isFalse); // untouched
     });
 
-    test('4. YOLO ripe 0.9 vs Gemini unripe -> label stays ripe, needsReview=true', () {
+    test(
+        '4. YOLO ripe 0.9 vs Gemini unripe -> label stays ripe, needsReview=true',
+        () {
       const veryConfidentRipe = Detection(
         x1: 50,
         y1: 50,
@@ -129,7 +139,9 @@ void main() {
       expect(result.first.aiVerified, isTrue);
     });
 
-    test('5. YOLO ripeness conf 0.3 vs Gemini overripe -> label becomes overripe', () {
+    test(
+        '5. Gemini ripeness disagreement is shown as a suggestion, not applied',
+        () {
       const lowConfRipe = Detection(
         x1: 50,
         y1: 50,
@@ -157,8 +169,10 @@ void main() {
       );
 
       expect(result.length, 1);
-      expect(result.first.mangoClass, MangoClass.over_ripe); // Updated to Gemini's ripeness
-      expect(result.first.needsReview, isFalse);
+      expect(
+          result.first.mangoClass, MangoClass.ripe); // YOLO stays authoritative
+      expect(result.first.aiSuggestedClass, MangoClass.over_ripe);
+      expect(result.first.needsReview, isTrue);
       expect(result.first.confidence, 0.30); // Real YOLO score unchanged
     });
 
@@ -174,8 +188,10 @@ void main() {
       expect(fallback.success, isFalse);
       expect(fallback.reconciledDetections.length, 2);
       expect(fallback.totalCount, 2);
-      expect(fallback.reconciledDetections[0].confidence, highConfBox.confidence);
-      expect(fallback.reconciledDetections[1].confidence, lowConfBox.confidence);
+      expect(
+          fallback.reconciledDetections[0].confidence, highConfBox.confidence);
+      expect(
+          fallback.reconciledDetections[1].confidence, lowConfBox.confidence);
       expect(fallback.verifiedCount, 0);
       expect(fallback.rejectedCount, 0);
     });
@@ -247,8 +263,14 @@ void main() {
       if (labelTop < displayedRect.top) {
         labelTop = clampedBox.top; // flip inside box
       }
-      labelLeft = labelLeft.clamp(displayedRect.left, (displayedRect.right - labelW).clamp(displayedRect.left, displayedRect.right));
-      labelTop = labelTop.clamp(displayedRect.top, (displayedRect.bottom - labelH).clamp(displayedRect.top, displayedRect.bottom));
+      labelLeft = labelLeft.clamp(
+          displayedRect.left,
+          (displayedRect.right - labelW)
+              .clamp(displayedRect.left, displayedRect.right));
+      labelTop = labelTop.clamp(
+          displayedRect.top,
+          (displayedRect.bottom - labelH)
+              .clamp(displayedRect.top, displayedRect.bottom));
 
       final labelRect = Rect.fromLTWH(labelLeft, labelTop, labelW, labelH);
       expect(labelRect.left, greaterThanOrEqualTo(displayedRect.left));

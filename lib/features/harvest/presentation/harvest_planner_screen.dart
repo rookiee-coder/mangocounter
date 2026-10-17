@@ -45,7 +45,8 @@ class _HarvestPlannerScreenState extends ConsumerState<HarvestPlannerScreen> {
 
   void _changeCalendarMonth(int offset) {
     setState(() {
-      _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + offset);
+      _calendarMonth =
+          DateTime(_calendarMonth.year, _calendarMonth.month + offset);
     });
   }
 
@@ -60,7 +61,8 @@ class _HarvestPlannerScreenState extends ConsumerState<HarvestPlannerScreen> {
       unripeCount: forecast.unripeFruit,
       overRipeCount: forecast.overRipeFruit,
     );
-    final prediction = DateFormat.MMMd().format(forecast.recommendedHarvestDate);
+    final prediction =
+        DateFormat.MMMd().format(forecast.recommendedHarvestDate);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -88,7 +90,8 @@ Give a concise field plan for this specific tree, including whether to harvest n
     if (!scheduled) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Notifications are disabled. Enable them to set this reminder.'),
+          content: Text(
+              'Notifications are disabled. Enable them to set this reminder.'),
         ),
       );
       return;
@@ -175,20 +178,24 @@ Give a concise field plan for this specific tree, including whether to harvest n
       appBar: AppBar(title: const Text('Harvest calendar')),
       body: scans.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Could not load scan history: $error')),
+        error: (error, _) =>
+            Center(child: Text('Could not load scan history: $error')),
         data: (records) {
           final treeIds = records
               .map((record) => record.treeId)
               .whereType<String>()
               .toSet();
           final localForecasts = treeIds
-              .map((treeId) => HarvestPredictor.forecastForTree(treeId, records))
+              .map(
+                  (treeId) => HarvestPredictor.forecastForTree(treeId, records))
               .whereType<HarvestForecast>()
               .toList()
-            ..sort((a, b) => a.recommendedHarvestDate.compareTo(b.recommendedHarvestDate));
+            ..sort((a, b) =>
+                a.recommendedHarvestDate.compareTo(b.recommendedHarvestDate));
           final signatureParts = records
               .where((record) => record.treeId != null)
-              .map((record) => '${record.treeId}:${record.id}:${record.createdAt}')
+              .map((record) =>
+                  '${record.treeId}:${record.id}:${record.createdAt}')
               .toList()
             ..sort();
           final signature = signatureParts.join('|');
@@ -505,55 +512,6 @@ class _HarvestPlannerBody extends StatelessWidget {
   }
 }
 
-class _CalendarStrip extends StatelessWidget {
-  final List<HarvestForecast> forecasts;
-  final DateTime start;
-
-  const _CalendarStrip({required this.forecasts, required this.start});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 98,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: 14,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final date = start.add(Duration(days: index));
-          final count = forecasts
-              .where((forecast) => DateUtils.isSameDay(forecast.recommendedHarvestDate, date))
-              .length;
-          final selected = count > 0;
-          final color = selected
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.surfaceContainerHighest;
-          return Container(
-            width: 62,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                Text(DateFormat.E().format(date), style: TextStyle(color: selected ? Colors.white : null)),
-                const SizedBox(height: 4),
-                Text('${date.day}', style: TextStyle(fontWeight: FontWeight.bold, color: selected ? Colors.white : null)),
-                const SizedBox(height: 5),
-                Text(
-                  count == 0 ? '—' : '$count tree${count == 1 ? '' : 's'}',
-                  style: TextStyle(fontSize: 10, color: selected ? Colors.white : null),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
 class _InteractiveMonthCalendar extends StatelessWidget {
   final List<HarvestForecast> forecasts;
   final DateTime month;
@@ -608,9 +566,9 @@ class _InteractiveMonthCalendar extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: AppColors.botanicalGradient,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(5),
                   bottomLeft: Radius.circular(18),
@@ -703,7 +661,8 @@ class _InteractiveMonthCalendar extends StatelessWidget {
                 final isToday = DateUtils.isSameDay(date, today);
                 return Semantics(
                   button: true,
-                  label: '${DateFormat.yMMMMd().format(date)}, $count planned trees',
+                  label:
+                      '${DateFormat.yMMMMd().format(date)}, $count planned trees',
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
                     onTap: () => onDateSelected(date),
@@ -751,7 +710,8 @@ class _InteractiveMonthCalendar extends StatelessWidget {
                                 child: Text(
                                   '$count',
                                   style: TextStyle(
-                                    color: selected ? markerColor : Colors.white,
+                                    color:
+                                        selected ? markerColor : Colors.white,
                                     fontSize: 8,
                                     fontWeight: FontWeight.w900,
                                   ),
@@ -766,9 +726,9 @@ class _InteractiveMonthCalendar extends StatelessWidget {
               },
             ),
             const SizedBox(height: 10),
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: const [
+              children: [
                 _CalendarLegend(
                   color: AppColors.unripeGreen,
                   label: 'Developing',
@@ -860,11 +820,14 @@ class _ForecastCard extends StatelessWidget {
               children: [
                 Icon(Icons.park_outlined, color: color),
                 const SizedBox(width: 8),
-                Expanded(child: Text(forecast.treeLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                Expanded(
+                    child: Text(forecast.treeLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold))),
                 Text(
                   forecast.needsRescan
                       ? 'RESCAN'
-                  : DateFormat.MMMd().format(forecast.recommendedHarvestDate),
+                      : DateFormat.MMMd()
+                          .format(forecast.recommendedHarvestDate),
                   style: TextStyle(color: color, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -929,9 +892,13 @@ class _EmptyPlanner extends StatelessWidget {
             children: [
               Icon(Icons.calendar_month_outlined, size: 48),
               SizedBox(height: 12),
-              Text('No assigned-tree scans yet', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('No assigned-tree scans yet',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 6),
-              Text('Select a tree in the orchard map before scanning. Its ripeness results will appear here as a harvest forecast.', textAlign: TextAlign.center),
+              Text(
+                  'Select a tree in the orchard map before scanning. Its ripeness results will appear here as a harvest forecast.',
+                  textAlign: TextAlign.center),
             ],
           ),
         ),

@@ -35,13 +35,18 @@ class HistoryDetailScreen extends ConsumerWidget {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Confirm Deletion'),
-                  content: const Text('Delete this harvest scan from your history?'),
+                  content:
+                      const Text('Delete this harvest scan from your history?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel')),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorCrimson),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.errorCrimson),
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                      child: const Text('Delete',
+                          style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),
@@ -64,11 +69,12 @@ class HistoryDetailScreen extends ConsumerWidget {
               child: Center(
                 child: Stack(
                   children: [
-                    if (scan.imagePath.isNotEmpty && File(scan.imagePath).existsSync())
+                    if (scan.imagePath.isNotEmpty &&
+                        File(scan.imagePath).existsSync())
                       Image.file(File(scan.imagePath), fit: BoxFit.contain)
                     else
-                      const Center(child: Text('Image file not found on device')),
-
+                      const Center(
+                          child: Text('Image file not found on device')),
                     Positioned.fill(
                       child: DetectionOverlay(
                         detections: scan.detections,
@@ -89,7 +95,8 @@ class HistoryDetailScreen extends ConsumerWidget {
               borderRadius: AppShapes.consoleSheet,
               border: Border(
                 top: BorderSide(
-                  color: isDark ? AppColors.darkOutline : const Color(0x261F5D3F),
+                  color:
+                      isDark ? AppColors.darkOutline : const Color(0x261F5D3F),
                   width: 1.5,
                 ),
               ),
@@ -119,9 +126,12 @@ class HistoryDetailScreen extends ConsumerWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF101B14) : const Color(0xFFEBF6EE),
+                        color: isDark
+                            ? const Color(0xFF101B14)
+                            : const Color(0xFFEBF6EE),
                         borderRadius: AppShapes.leafCut,
                         border: Border.all(color: primary.withOpacity(0.3)),
                       ),
@@ -155,17 +165,23 @@ class HistoryDetailScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            df.format(DateTime.fromMillisecondsSinceEpoch(scan.createdAt)),
-                            style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: muted),
+                            df.format(DateTime.fromMillisecondsSinceEpoch(
+                                scan.createdAt)),
+                            style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                color: muted),
                           ),
                           const SizedBox(height: 6),
                           Row(
                             children: [
                               _buildPill('Ripe: ${scan.currentRipe}', amber),
                               const SizedBox(width: 6),
-                              _buildPill('Unripe: ${scan.currentUnripe}', AppColors.unripeGreen),
+                              _buildPill('Unripe: ${scan.currentUnripe}',
+                                  AppColors.unripeGreen),
                               const SizedBox(width: 6),
-                              _buildPill('Over: ${scan.currentOverRipe}', AppColors.overRipeEarth),
+                              _buildPill('Over: ${scan.currentOverRipe}',
+                                  AppColors.overRipeEarth),
                             ],
                           ),
                         ],
@@ -176,7 +192,8 @@ class HistoryDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 if (scan.actualCount != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9),
                       borderRadius: BorderRadius.circular(8),
@@ -197,11 +214,13 @@ class HistoryDetailScreen extends ConsumerWidget {
                   children: [
                     Text(
                       'Sensitivity: ${(scan.confThreshold * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: muted),
+                      style: TextStyle(
+                          fontFamily: 'monospace', fontSize: 10, color: muted),
                     ),
                     Text(
                       'Speed: ${scan.inferenceMs}ms',
-                      style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: muted),
+                      style: TextStyle(
+                          fontFamily: 'monospace', fontSize: 10, color: muted),
                     ),
                   ],
                 ),
@@ -223,7 +242,8 @@ class HistoryDetailScreen extends ConsumerWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }

@@ -32,7 +32,9 @@ void main() {
       confidence: 0.45,
     );
 
-    test('User manually added box is strictly preserved regardless of AI verdict', () {
+    test(
+        'User manually added box is strictly preserved regardless of AI verdict',
+        () {
       const userBox = Detection(
         x1: 10,
         y1: 10,
@@ -63,7 +65,8 @@ void main() {
       expect(result.first.mangoClass, MangoClass.ripe);
     });
 
-    test('Multiple candidates: low confidence non-mango dropped, high confidence kept', () {
+    test('All YOLO boxes stay counted and AI flags possible non-mango crops',
+        () {
       final verdicts = {
         0: const CropVerdict(
           id: 0,
@@ -93,11 +96,11 @@ void main() {
         cropVerdicts: verdicts,
       );
 
-      // mangoA kept (high-conf, confirmed ripe)
-      // mangoB kept (conf 0.55 >= 0.50, confirmed unripe)
-      // lowConfNoise dropped (conf 0.45 < 0.50, isMango == false)
-      expect(result.length, 2);
-      expect(result.any((d) => d.x1 == lowConfNoise.x1), isFalse);
+      // YOLO owns the count. Gemini can only flag a candidate for inspection.
+      expect(result.length, 3);
+      final flagged = result.firstWhere((d) => d.x1 == lowConfNoise.x1);
+      expect(flagged.aiFlaggedNonMango, isTrue);
+      expect(flagged.needsReview, isTrue);
     });
 
     test('Gemini unknown ripeness keeps original YOLO class', () {
@@ -121,7 +124,8 @@ void main() {
       expect(result.first.needsReview, isFalse);
     });
 
-    test('Bounding box coordinates are never mutated by Gemini verification', () {
+    test('Bounding box coordinates are never mutated by Gemini verification',
+        () {
       final verdicts = {
         0: const CropVerdict(
           id: 0,

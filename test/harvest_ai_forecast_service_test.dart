@@ -46,7 +46,8 @@ void main() {
                           'tree_id': 'lane_1_tree_1',
                           'days_until_harvest': 4,
                           'confidence': 76,
-                          'reason': 'A few ripe fruit; check again in four days.',
+                          'reason':
+                              'A few ripe fruit; check again in four days.',
                           'needs_rescan': false,
                         }
                       ],

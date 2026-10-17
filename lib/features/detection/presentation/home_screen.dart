@@ -154,7 +154,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ListTile(
                 leading: const Icon(Icons.videocam_outlined),
                 title: const Text('Whole-tree video scan'),
-                subtitle: const Text('Sweep the canopy to avoid duplicate counts'),
+                subtitle:
+                    const Text('Sweep the canopy to avoid duplicate counts'),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   _showVideoSourceDialog(context, treeId: treeId);

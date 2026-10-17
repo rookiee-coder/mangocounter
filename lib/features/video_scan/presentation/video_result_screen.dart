@@ -113,7 +113,7 @@ class _VideoResultScreenState extends ConsumerState<VideoResultScreen> {
             content: Text(widget.treeId == null
                 ? 'Whole tree scan saved to history! 🌾'
                 : 'Scan saved and tree count updated! 🌾'),
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }

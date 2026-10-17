@@ -1184,120 +1184,164 @@ class OrchardTreeDetailsSheet extends StatelessWidget {
     return SafeArea(
       child: SingleChildScrollView(
         child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.35),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Container(
-                  width: 54,
-                  height: 54,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryGreen.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(17),
-                  ),
-                  child: const Icon(Icons.park_rounded,
-                      size: 32, color: AppColors.primaryGreen),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tree.label,
-                          style: TextStyle(
-                              color: text,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w800)),
-                      Text('Mango orchard / Lane ${tree.lane}',
-                          style: const TextStyle(
-                              color: AppColors.mutedGraphite, fontSize: 12)),
-                    ],
+                    color: Colors.grey.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F7F2),
-                borderRadius: BorderRadius.circular(16),
               ),
-              child: scan == null
-                  ? const Row(
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(17),
+                    ),
+                    child: const Icon(Icons.park_rounded,
+                        size: 32, color: AppColors.primaryGreen),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline, color: AppColors.primaryGreen),
-                        SizedBox(width: 10),
+                        Text(tree.label,
+                            style: TextStyle(
+                                color: text,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800)),
+                        Text('Mango orchard / Lane ${tree.lane}',
+                            style: const TextStyle(
+                                color: AppColors.mutedGraphite, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F7F2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: scan == null
+                    ? const Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: AppColors.primaryGreen),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'This tree has not been scanned yet. Its mango count will appear here after you save a scan.',
+                              style: TextStyle(height: 1.35),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('${scan.currentTotal}',
+                                  style: const TextStyle(
+                                      color: AppColors.primaryGreen,
+                                      fontSize: 34,
+                                      height: 1,
+                                      fontWeight: FontWeight.w900)),
+                              const SizedBox(width: 8),
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 3),
+                                child: Text('mangoes in latest scan',
+                                    style: TextStyle(
+                                        color: AppColors.mutedGraphite,
+                                        fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _countPill('Ripe', scan.currentRipe,
+                                  const Color(0xFFE49A20)),
+                              _countPill('Unripe', scan.currentUnripe,
+                                  const Color(0xFF548A48)),
+                              _countPill('Overripe', scan.currentOverRipe,
+                                  const Color(0xFF9B6545)),
+                            ],
+                          ),
+                          const SizedBox(height: 9),
+                          Text(
+                            'Scanned ${DateTime.fromMillisecondsSinceEpoch(scan.createdAt).toLocal().toString().substring(0, 16)}',
+                            style: const TextStyle(
+                                color: AppColors.mutedGraphite, fontSize: 11),
+                          ),
+                        ],
+                      ),
+              ),
+              if (scanHistory.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'RECENT TREE SCANS',
+                  style: TextStyle(
+                    color: AppColors.mutedGraphite,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ...scanHistory.map((pastScan) {
+                  final scannedAt = DateTime.fromMillisecondsSinceEpoch(
+                    pastScan.createdAt,
+                  ).toLocal();
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.history_rounded,
+                            size: 15, color: AppColors.mutedGraphite),
+                        const SizedBox(width: 7),
                         Expanded(
                           child: Text(
-                            'This tree has not been scanned yet. Its mango count will appear here after you save a scan.',
-                            style: TextStyle(height: 1.35),
+                            '${scannedAt.month}/${scannedAt.day}/${scannedAt.year}',
+                            style: const TextStyle(
+                                color: AppColors.mutedGraphite, fontSize: 12),
+                          ),
+                        ),
+                        Text(
+                          '${pastScan.currentTotal} mangoes',
+                          style: const TextStyle(
+                            color: AppColors.primaryGreen,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('${scan.currentTotal}',
-                                style: const TextStyle(
-                                    color: AppColors.primaryGreen,
-                                    fontSize: 34,
-                                    height: 1,
-                                    fontWeight: FontWeight.w900)),
-                            const SizedBox(width: 8),
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: 3),
-                              child: Text('mangoes in latest scan',
-                                  style: TextStyle(
-                                      color: AppColors.mutedGraphite,
-                                      fontSize: 12)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _countPill('Ripe', scan.currentRipe,
-                                const Color(0xFFE49A20)),
-                            _countPill('Unripe', scan.currentUnripe,
-                                const Color(0xFF548A48)),
-                            _countPill('Overripe', scan.currentOverRipe,
-                                const Color(0xFF9B6545)),
-                          ],
-                        ),
-                        const SizedBox(height: 9),
-                        Text(
-                          'Scanned ${DateTime.fromMillisecondsSinceEpoch(scan.createdAt).toLocal().toString().substring(0, 16)}',
-                          style: const TextStyle(
-                              color: AppColors.mutedGraphite, fontSize: 11),
-                        ),
-                      ],
                     ),
-            ),
-            if (scanHistory.isNotEmpty) ...[
-              const SizedBox(height: 14),
+                  );
+                }),
+              ],
+              const SizedBox(height: 18),
               const Text(
-                'RECENT TREE SCANS',
+                'UPDATE TREE COUNT',
                 style: TextStyle(
                   color: AppColors.mutedGraphite,
                   fontFamily: 'monospace',
@@ -1306,100 +1350,57 @@ class OrchardTreeDetailsSheet extends StatelessWidget {
                   letterSpacing: 0.8,
                 ),
               ),
-              const SizedBox(height: 6),
-              ...scanHistory.map((pastScan) {
-                final scannedAt = DateTime.fromMillisecondsSinceEpoch(
-                  pastScan.createdAt,
-                ).toLocal();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.history_rounded,
-                          size: 15, color: AppColors.mutedGraphite),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Text(
-                          '${scannedAt.month}/${scannedAt.day}/${scannedAt.year}',
-                          style: const TextStyle(
-                              color: AppColors.mutedGraphite, fontSize: 12),
-                        ),
-                      ),
-                      Text(
-                        '${pastScan.currentTotal} mangoes',
-                        style: const TextStyle(
-                          color: AppColors.primaryGreen,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-            const SizedBox(height: 18),
-            const Text(
-              'UPDATE TREE COUNT',
-              style: TextStyle(
-                color: AppColors.mutedGraphite,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
-                letterSpacing: 0.8,
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: onCameraScan,
+                icon: const Icon(Icons.camera_alt_rounded),
+                label: const Text('Scan this tree with camera'),
               ),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: onCameraScan,
-              icon: const Icon(Icons.camera_alt_rounded),
-              label: const Text('Scan this tree with camera'),
-            ),
-            const SizedBox(height: 7),
-            OutlinedButton.icon(
-              onPressed: onVideoScan,
-              icon: const Icon(Icons.videocam_rounded),
-              label: const Text('Scan whole tree with video'),
-            ),
-            TextButton.icon(
-              onPressed: onGalleryScan,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: const Text('Choose tree photo from gallery'),
-            ),
-            if (scan != null) ...[
-              const Divider(height: 26),
+              const SizedBox(height: 7),
               OutlinedButton.icon(
-                onPressed: () {
-                  final scanContext = ScanChatContext(
-                    totalCount: scan.currentTotal,
-                    ripeCount: scan.currentRipe,
-                    unripeCount: scan.currentUnripe,
-                    overRipeCount: scan.currentOverRipe,
-                    inferenceMs: scan.inferenceMs,
-                    confThreshold: scan.confThreshold,
-                    actualCount: scan.actualCount,
-                  );
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ChatScreen(
-                        scanContext: scanContext,
-                        initialQuestion: '''
+                onPressed: onVideoScan,
+                icon: const Icon(Icons.videocam_rounded),
+                label: const Text('Scan whole tree with video'),
+              ),
+              TextButton.icon(
+                onPressed: onGalleryScan,
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('Choose tree photo from gallery'),
+              ),
+              if (scan != null) ...[
+                const Divider(height: 26),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final scanContext = ScanChatContext(
+                      totalCount: scan.currentTotal,
+                      ripeCount: scan.currentRipe,
+                      unripeCount: scan.currentUnripe,
+                      overRipeCount: scan.currentOverRipe,
+                      inferenceMs: scan.inferenceMs,
+                      confThreshold: scan.confThreshold,
+                      actualCount: scan.actualCount,
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          scanContext: scanContext,
+                          initialQuestion: '''
 Please review ${tree.label}. Its latest scan found ${scan.currentTotal} mangoes: ${scan.currentRipe} ripe, ${scan.currentUnripe} unripe, and ${scan.currentOverRipe} overripe. Give a concise, tree-specific field plan for harvest timing and the next action.
 ''',
+                        ),
                       ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.auto_awesome_rounded),
-                label: const Text('Ask AI about this tree'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 13),
+                    );
+                  },
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('Ask AI about this tree'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
       ),
     );
   }

@@ -85,7 +85,8 @@ class VideoAnalyzingView extends StatelessWidget {
                 value: progress.clamp(0.0, 1.0),
                 minHeight: 6,
                 color: primary,
-                backgroundColor: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F),
+                backgroundColor:
+                    isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F),
               ),
             ),
             const SizedBox(height: 10),
@@ -123,7 +124,8 @@ class VideoAnalyzingView extends StatelessWidget {
                 color: surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? AppColors.darkOutline : const Color(0x1A1F5D3F),
+                  color:
+                      isDark ? AppColors.darkOutline : const Color(0x1A1F5D3F),
                 ),
               ),
               child: Row(
@@ -145,7 +147,8 @@ class VideoAnalyzingView extends StatelessWidget {
               const SizedBox(height: 24),
               TextButton(
                 onPressed: onCancel,
-                child: Text('Cancel', style: TextStyle(color: muted, fontSize: 13)),
+                child: Text('Cancel',
+                    style: TextStyle(color: muted, fontSize: 13)),
               ),
             ],
           ],

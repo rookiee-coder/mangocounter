@@ -41,7 +41,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _openScan() {
     if (_selectedIndex != 0) setState(() => _selectedIndex = 0);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scanController.openScan());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scanController.openScan());
   }
 
   @override
@@ -172,14 +173,14 @@ class OrchardBottomNavigation extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
                       child: DecoratedBox(
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           gradient: AppColors.botanicalGradient,
                           shape: BoxShape.circle,
                         ),
-                        child: const Column(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
@@ -248,10 +249,12 @@ class _NavItem extends StatelessWidget {
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color:
-                        selected ? primary.withOpacity(.12) : Colors.transparent,
+                    color: selected
+                        ? primary.withOpacity(.12)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
@@ -298,8 +301,8 @@ class _OrchardDockPainter extends CustomPainter {
       ..lineTo(size.width - 14, 17)
       ..quadraticBezierTo(size.width, 17, size.width, 30)
       ..lineTo(size.width, size.height - 20)
-      ..quadraticBezierTo(size.width, size.height - 4, size.width - 18,
-          size.height - 4)
+      ..quadraticBezierTo(
+          size.width, size.height - 4, size.width - 18, size.height - 4)
       ..lineTo(18, size.height - 4)
       ..quadraticBezierTo(0, size.height - 4, 0, size.height - 20)
       ..close();

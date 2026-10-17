@@ -60,9 +60,11 @@ class _AnalyzingViewState extends State<AnalyzingView>
               width: 260,
               height: 260,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF09120D) : const Color(0xFFEAF4EC),
+                color:
+                    isDark ? const Color(0xFF09120D) : const Color(0xFFEAF4EC),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: primary.withOpacity(0.35), width: 1.5),
+                border:
+                    Border.all(color: primary.withOpacity(0.35), width: 1.5),
                 boxShadow: [
                   BoxShadow(
                     color: primary.withOpacity(0.10),
@@ -136,7 +138,8 @@ class _AnalyzingViewState extends State<AnalyzingView>
                       height: 24,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: amber.withOpacity(0.7), width: 1.5),
+                        border: Border.all(
+                            color: amber.withOpacity(0.7), width: 1.5),
                       ),
                       child: Center(
                         child: Container(
@@ -226,7 +229,10 @@ class _AnalyzingViewState extends State<AnalyzingView>
               decoration: BoxDecoration(
                 color: surface,
                 borderRadius: AppShapes.leafCut,
-                border: Border.all(color: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
+                border: Border.all(
+                    color: isDark
+                        ? AppColors.darkOutline
+                        : const Color(0x1F1F5D3F)),
               ),
               child: Column(
                 children: [
@@ -299,9 +305,13 @@ class _AnalyzingViewState extends State<AnalyzingView>
             shape: BoxShape.circle,
             color: completed
                 ? primaryColor
-                : (active ? primaryColor.withOpacity(0.15) : Colors.transparent),
+                : (active
+                    ? primaryColor.withOpacity(0.15)
+                    : Colors.transparent),
             border: Border.all(
-              color: completed ? primaryColor : (active ? primaryColor : mutedColor.withOpacity(0.4)),
+              color: completed
+                  ? primaryColor
+                  : (active ? primaryColor : mutedColor.withOpacity(0.4)),
               width: 1.5,
             ),
           ),
@@ -312,7 +322,8 @@ class _AnalyzingViewState extends State<AnalyzingView>
                     ? SizedBox(
                         width: 12,
                         height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: primaryColor),
                       )
                     : Text(
                         number,
@@ -369,20 +380,28 @@ class _ViewfinderReticlePainter extends CustomPainter {
     const pad = 14.0;
 
     // Top-Left
-    canvas.drawLine(const Offset(pad, pad), const Offset(pad + arm, pad), paint);
-    canvas.drawLine(const Offset(pad, pad), const Offset(pad, pad + arm), paint);
+    canvas.drawLine(
+        const Offset(pad, pad), const Offset(pad + arm, pad), paint);
+    canvas.drawLine(
+        const Offset(pad, pad), const Offset(pad, pad + arm), paint);
 
     // Top-Right
-    canvas.drawLine(Offset(size.width - pad, pad), Offset(size.width - pad - arm, pad), paint);
-    canvas.drawLine(Offset(size.width - pad, pad), Offset(size.width - pad, pad + arm), paint);
+    canvas.drawLine(Offset(size.width - pad, pad),
+        Offset(size.width - pad - arm, pad), paint);
+    canvas.drawLine(Offset(size.width - pad, pad),
+        Offset(size.width - pad, pad + arm), paint);
 
     // Bottom-Left
-    canvas.drawLine(Offset(pad, size.height - pad), Offset(pad + arm, size.height - pad), paint);
-    canvas.drawLine(Offset(pad, size.height - pad), Offset(pad, size.height - pad - arm), paint);
+    canvas.drawLine(Offset(pad, size.height - pad),
+        Offset(pad + arm, size.height - pad), paint);
+    canvas.drawLine(Offset(pad, size.height - pad),
+        Offset(pad, size.height - pad - arm), paint);
 
     // Bottom-Right
-    canvas.drawLine(Offset(size.width - pad, size.height - pad), Offset(size.width - pad - arm, size.height - pad), paint);
-    canvas.drawLine(Offset(size.width - pad, size.height - pad), Offset(size.width - pad, size.height - pad - arm), paint);
+    canvas.drawLine(Offset(size.width - pad, size.height - pad),
+        Offset(size.width - pad - arm, size.height - pad), paint);
+    canvas.drawLine(Offset(size.width - pad, size.height - pad),
+        Offset(size.width - pad, size.height - pad - arm), paint);
   }
 
   @override

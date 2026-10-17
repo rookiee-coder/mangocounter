@@ -34,24 +34,36 @@ class DemoDetector implements Detector {
     final h = decoded.height;
 
     final List<Detection> fakeDetections = [];
-    
+
     // Add some fake boxes if threshold allows
     if (0.85 >= confThreshold) {
       fakeDetections.add(Detection(
-        x1: w * 0.2, y1: h * 0.2, x2: w * 0.4, y2: h * 0.4,
-        mangoClass: MangoClass.ripe, confidence: 0.85,
+        x1: w * 0.2,
+        y1: h * 0.2,
+        x2: w * 0.4,
+        y2: h * 0.4,
+        mangoClass: MangoClass.ripe,
+        confidence: 0.85,
       ));
     }
     if (0.65 >= confThreshold) {
       fakeDetections.add(Detection(
-        x1: w * 0.5, y1: h * 0.5, x2: w * 0.7, y2: h * 0.7,
-        mangoClass: MangoClass.unripe, confidence: 0.65,
+        x1: w * 0.5,
+        y1: h * 0.5,
+        x2: w * 0.7,
+        y2: h * 0.7,
+        mangoClass: MangoClass.unripe,
+        confidence: 0.65,
       ));
     }
     if (0.45 >= confThreshold) {
       fakeDetections.add(Detection(
-        x1: w * 0.6, y1: h * 0.1, x2: w * 0.8, y2: h * 0.3,
-        mangoClass: MangoClass.ripe, confidence: 0.45,
+        x1: w * 0.6,
+        y1: h * 0.1,
+        x2: w * 0.8,
+        y2: h * 0.3,
+        mangoClass: MangoClass.ripe,
+        confidence: 0.45,
       ));
     }
 

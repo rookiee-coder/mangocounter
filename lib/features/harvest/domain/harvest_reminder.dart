@@ -20,7 +20,8 @@ class HarvestReminder {
   factory HarvestReminder.fromJson(Map<String, dynamic> json) {
     return HarvestReminder(
       treeId: json['treeId'] as String,
-      harvestDate: DateTime.fromMillisecondsSinceEpoch(json['harvestDate'] as int),
+      harvestDate:
+          DateTime.fromMillisecondsSinceEpoch(json['harvestDate'] as int),
     );
   }
 }

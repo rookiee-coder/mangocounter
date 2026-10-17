@@ -6,7 +6,7 @@ void main() {
   test('NMS suppresses overlapping boxes of same class', () {
     // We can test this by passing synthetic model output
     // Format [1, 6, 8400]
-    
+
     // Let's craft a synthetic tensor.
     // Two highly overlapping boxes for ripe mango.
     // cx, cy, w, h, class0, class1
@@ -18,10 +18,10 @@ void main() {
       [
         [320.0, 322.0, 500.0, 0.0, 0.0, 0.0, 0.0], // cx
         [320.0, 322.0, 500.0, 0.0, 0.0, 0.0, 0.0], // cy
-        [100.0, 100.0, 50.0,  0.0, 0.0, 0.0, 0.0],  // w
-        [100.0, 100.0, 50.0,  0.0, 0.0, 0.0, 0.0],  // h
-        [0.9, 0.8, 0.1,       0.0, 0.0, 0.0, 0.0],       // class0
-        [0.1, 0.1, 0.8,       0.0, 0.0, 0.0, 0.0],       // class1
+        [100.0, 100.0, 50.0, 0.0, 0.0, 0.0, 0.0], // w
+        [100.0, 100.0, 50.0, 0.0, 0.0, 0.0, 0.0], // h
+        [0.9, 0.8, 0.1, 0.0, 0.0, 0.0, 0.0], // class0
+        [0.1, 0.1, 0.8, 0.0, 0.0, 0.0, 0.0], // class1
       ]
     ];
 
@@ -38,11 +38,11 @@ void main() {
     );
 
     expect(result.length, 2);
-    
+
     // First should be the high confidence over_ripe/half_ripe mango (class0)
     expect(result[0].mangoClass, MangoClass.half_ripe);
     expect(result[0].confidence, 0.9);
-    
+
     // Second should be ripe mango (class1)
     expect(result[1].mangoClass, MangoClass.ripe);
     expect(result[1].confidence, 0.8);

@@ -36,7 +36,8 @@ void main() {
       ripe: 8,
     );
     final currentUnripe = scan(
-      createdAt: today.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+      createdAt:
+          today.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
       unripe: 8,
     );
 
@@ -73,7 +74,8 @@ void main() {
       treeId,
       [
         scan(
-          createdAt: today.subtract(const Duration(days: 15)).millisecondsSinceEpoch,
+          createdAt:
+              today.subtract(const Duration(days: 15)).millisecondsSinceEpoch,
           unripe: 5,
         ),
       ],

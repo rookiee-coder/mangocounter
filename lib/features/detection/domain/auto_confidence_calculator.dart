@@ -18,7 +18,8 @@ class AutoConfidenceCalculator {
   /// Automatically computes the optimal confidence threshold for the given detections.
   static double calculate(List<Detection> detections) {
     // Only analyze raw model predictions (ignore user-edited or AI-verified detections)
-    final rawDetections = detections.where((d) => !d.userEdited && !d.aiVerified).toList();
+    final rawDetections =
+        detections.where((d) => !d.userEdited && !d.aiVerified).toList();
     if (rawDetections.isEmpty) {
       return 0.15;
     }
@@ -77,7 +78,8 @@ class AutoConfidenceCalculator {
 
   /// Filters detections using the calculated threshold.
   /// User-edited and AI-verified detections are always preserved.
-  static List<Detection> filterDetections(List<Detection> allDetections, double threshold) {
+  static List<Detection> filterDetections(
+      List<Detection> allDetections, double threshold) {
     return allDetections.where((d) {
       if (d.userEdited || d.aiVerified) return true;
       return d.confidence >= threshold;

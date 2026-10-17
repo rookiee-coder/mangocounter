@@ -7,10 +7,34 @@ void main() {
   test('DetectionResult counts correctly', () {
     const result = DetectionResult(
       detections: [
-        Detection(x1: 0, y1: 0, x2: 10, y2: 10, mangoClass: MangoClass.ripe, confidence: 0.9),
-        Detection(x1: 0, y1: 0, x2: 10, y2: 10, mangoClass: MangoClass.unripe, confidence: 0.9),
-        Detection(x1: 0, y1: 0, x2: 10, y2: 10, mangoClass: MangoClass.ripe, confidence: 0.9),
-        Detection(x1: 0, y1: 0, x2: 10, y2: 10, mangoClass: MangoClass.over_ripe, confidence: 0.85),
+        Detection(
+            x1: 0,
+            y1: 0,
+            x2: 10,
+            y2: 10,
+            mangoClass: MangoClass.ripe,
+            confidence: 0.9),
+        Detection(
+            x1: 0,
+            y1: 0,
+            x2: 10,
+            y2: 10,
+            mangoClass: MangoClass.unripe,
+            confidence: 0.9),
+        Detection(
+            x1: 0,
+            y1: 0,
+            x2: 10,
+            y2: 10,
+            mangoClass: MangoClass.ripe,
+            confidence: 0.9),
+        Detection(
+            x1: 0,
+            y1: 0,
+            x2: 10,
+            y2: 10,
+            mangoClass: MangoClass.over_ripe,
+            confidence: 0.85),
       ],
       imageWidth: 640,
       imageHeight: 640,

@@ -44,5 +44,3 @@ app.*.map.json
 /android/build/
 
 # Local test scratch & external clone
-test_image_bin.jpg
-yolov11-mango-detection/

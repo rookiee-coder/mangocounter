@@ -53,8 +53,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   /// Outcome of the last automatic AI pass (used for the AI status line).
   bool _aiCompleted = false;
-  int _aiRemovedCount = 0;
   int _aiNeedsReviewCount = 0;
+  int _aiPossibleFalseCount = 0;
 
   /// Confidence mode: automatic calibration vs manual slider override.
   bool _isAutoConfidence = true;
@@ -202,8 +202,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       _aiReconciledDetections = List<Detection>.from(merged);
       _lastAiProvider = result.providerName;
       _aiCompleted = true;
-      _aiRemovedCount = result.rejectedCount;
       _aiNeedsReviewCount = result.needsReviewCount;
+      _aiPossibleFalseCount = merged.where((d) => d.aiFlaggedNonMango).length;
 
       setState(() {
         _showAiVerified = true;
@@ -263,13 +263,28 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           final idx = _allDetections.indexOf(det);
           if (idx != -1) {
             _allDetections[idx] = det.copyWith(
-              mangoClass: verdict.isMango
-                  ? verdict.ripeness ?? det.mangoClass
-                  : det.mangoClass,
+              aiSuggestedClass:
+                  verdict.isMango && verdict.ripeness != det.mangoClass
+                      ? verdict.ripeness
+                      : null,
+              aiFlaggedNonMango: !verdict.isMango,
               aiVerified: true,
-              aiReason: verdict.reason,
-              needsReview: !verdict.isMango,
+              aiReason: !verdict.isMango
+                  ? 'Possible non-mango: ${verdict.reason}'
+                  : verdict.ripeness != null &&
+                          verdict.ripeness != det.mangoClass
+                      ? 'AI suggests ${verdict.ripeness!.displayName}: ${verdict.reason}'
+                      : verdict.reason,
+              needsReview: !verdict.isMango ||
+                  (verdict.ripeness != null &&
+                      verdict.ripeness != det.mangoClass),
             );
+            _aiNeedsReviewCount = _allDetections
+                .where((detection) => detection.needsReview)
+                .length;
+            _aiPossibleFalseCount = _allDetections
+                .where((detection) => detection.aiFlaggedNonMango)
+                .length;
             _updateFiltered();
           }
         });
@@ -282,13 +297,20 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 const Icon(Icons.auto_awesome, color: Colors.purple),
                 const SizedBox(width: 8),
                 Text(verdict.isMango
-                    ? 'AI Confirmed: ${verdict.ripeness?.displayName ?? det.mangoClass.displayName}'
-                    : 'AI: Not a Mango'),
+                    ? verdict.ripeness != null &&
+                            verdict.ripeness != det.mangoClass
+                        ? 'Review suggested ripeness'
+                        : 'AI agrees with YOLO'
+                    : 'Possible false detection'),
               ],
             ),
-            content: Text(verdict.reason.isNotEmpty
-                ? verdict.reason
-                : 'AI inspection completed.'),
+            content: Text(!verdict.isMango
+                ? 'YOLO kept this fruit in the count. Gemini suspects it may not be a mango, so inspect it before removing it. ${verdict.reason}'
+                : verdict.ripeness != null && verdict.ripeness != det.mangoClass
+                    ? 'YOLO says ${det.mangoClass.displayName}; Gemini suggests ${verdict.ripeness!.displayName}. The original label was kept because lighting can mislead color judgments. ${verdict.reason}'
+                    : verdict.reason.isNotEmpty
+                        ? 'YOLO and Gemini agree. ${verdict.reason}'
+                        : 'AI inspection completed.'),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
@@ -580,13 +602,33 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ListTile(
                 leading: const Icon(Icons.auto_awesome, color: Colors.purple),
                 title: const Text('Verify ripeness with AI'),
-                subtitle:
-                    det.aiReason != null ? Text('AI: ${det.aiReason}') : null,
+                subtitle: det.needsReview
+                    ? Text(det.aiFlaggedNonMango
+                        ? 'AI suspects this may not be a mango; it remains counted for your review.'
+                        : 'YOLO: ${det.mangoClass.displayName} · AI suggestion: ${det.aiSuggestedClass?.displayName ?? "Review"}')
+                    : det.aiReason != null
+                        ? Text('Second opinion: ${det.aiReason}')
+                        : null,
                 onTap: () {
                   Navigator.pop(ctx);
                   _verifySingleWithAi(det);
                 },
               ),
+              if (det.aiSuggestedClass != null)
+                ListTile(
+                  leading: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: AppColors.primaryGreen,
+                  ),
+                  title: Text(
+                    'Apply AI suggestion: ${det.aiSuggestedClass!.displayName}',
+                  ),
+                  subtitle: const Text('Applies as your manual correction.'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _changeClass(det, det.aiSuggestedClass!);
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.change_circle_outlined,
                     color: AppColors.primaryGreen),
@@ -643,6 +685,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         _allDetections[index] = det.copyWith(
           mangoClass: newClass,
           userEdited: true,
+          needsReview: false,
+          aiFlaggedNonMango: false,
         );
         _updateFiltered();
       }
@@ -1150,14 +1194,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   String _buildAiStatusLine(int total, int ripe, int unripe, int overRipe) {
     final parts = <String>[
-      '$total verified: $ripe ripe, $unripe unripe, $overRipe over-ripe',
+      'YOLO kept $total: $ripe ripe, $unripe unripe, $overRipe over-ripe',
     ];
     if (_aiNeedsReviewCount > 0) {
-      parts.add('$_aiNeedsReviewCount need review (?)');
+      parts.add('$_aiNeedsReviewCount AI disagreements to review');
     }
-    if (_aiRemovedCount > 0) {
-      parts.add(
-          '$_aiRemovedCount non-mango${_aiRemovedCount == 1 ? '' : 'es'} filtered');
+    if (_aiPossibleFalseCount > 0) {
+      parts.add('$_aiPossibleFalseCount possible false detections flagged');
     }
     return parts.join(' · ');
   }
@@ -1313,7 +1356,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                                   color: Colors.purple.withOpacity(0.3)),
                             ),
                             child: Text(
-                              '✨ $aiVerifiedCount AI Checked',
+                              '✨ $aiVerifiedCount AI Reviewed',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -1356,7 +1399,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                       children: [
                         if (_lastAiProvider != null)
                           Text(
-                            'AI Fruit Check (${_lastAiProvider!})',
+                            'AI Second Opinion (${_lastAiProvider!})',
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,

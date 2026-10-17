@@ -25,7 +25,9 @@ class CropVerdict {
 
   factory CropVerdict.fromJson(Map<String, dynamic> json) {
     final id = (json['id'] as num?)?.toInt() ?? -1;
-    final isMango = json['is_mango'] == true || json['is_mango'] == 'true';
+    // Missing or malformed identity must never be interpreted as a negative.
+    final rawIsMango = json['is_mango'];
+    final isMango = rawIsMango != false && rawIsMango != 'false';
     final rawRipeness =
         (json['ripeness'] as String?)?.toLowerCase().trim() ?? 'unknown';
 
@@ -120,6 +122,7 @@ class GeminiAssistantService {
   static const double highConfKeepDefault = 0.50;
   static const double yoloClassKeepConfDefault = 0.60;
   static const int maxCropsPerBatch = 4;
+  static const int maxAiCandidatesPerScan = 24;
   // Two simultaneous requests reduce multi-fruit wait time without increasing
   // the number of crops reviewed or overwhelming typical Gemini free quotas.
   static const int maxConcurrentBatches = 2;
@@ -159,8 +162,8 @@ class GeminiAssistantService {
     }
   }
 
-  /// Pure, unit-testable merge function.
-  /// Central authority on merging YOLO detections with Gemini crop verdicts.
+  /// Keeps YOLO as the source of count and class truth. Gemini can only surface
+  /// disagreements for a person to review; it cannot add or remove fruit.
   static List<Detection> reconcileCropVerdicts({
     required List<Detection> yoloDetections,
     required Map<int, CropVerdict> cropVerdicts,
@@ -186,60 +189,35 @@ class GeminiAssistantService {
         continue;
       }
 
-      // Rule C1 & C2:
-      // Gemini can NEVER delete a YOLO box whose confidence >= highConfKeep.
-      // For boxes below that, Gemini may remove ONLY if is_mango == false.
-      if (!verdict.isMango && yoloDet.confidence < highConfKeep) {
-        if (kDebugMode) {
-          debugPrint(
-              '[Detection #$i] YOLO: ${yoloDet.mangoClass.label} (${yoloDet.confidence.toStringAsFixed(2)}) | '
-              'Gemini: is_mango=${verdict.isMango}, ripeness=${verdict.rawRipeness}, reason="${verdict.reason}" | '
-              'Decision: kept=false (removed false alarm), needsReview=false');
-        }
-        continue;
-      }
-
-      // Box is kept. Reconcile ripeness:
-      // Rule C4:
-      // - Keep YOLO's class when YOLO class confidence >= yoloClassKeepConf.
-      // - When lower, use Gemini's ripeness if not "unknown".
-      // - When both are confident and DISAGREE, keep YOLO's label and mark needsReview = true.
-      MangoClass finalClass = yoloDet.mangoClass;
-      bool needsReview = false;
-      final bool geminiHasClass = verdict.ripeness != null;
-
-      if (yoloDet.confidence >= yoloClassKeepConf) {
-        if (geminiHasClass && verdict.ripeness != yoloDet.mangoClass) {
-          finalClass = yoloDet.mangoClass;
-          needsReview = true;
-        } else {
-          finalClass = yoloDet.mangoClass;
-          needsReview = false;
-        }
-      } else {
-        if (geminiHasClass) {
-          finalClass = verdict.ripeness!;
-          needsReview = false;
-        } else {
-          finalClass = yoloDet.mangoClass;
-          needsReview = false;
-        }
-      }
+      final suggestedClass =
+          verdict.isMango && verdict.ripeness != yoloDet.mangoClass
+              ? verdict.ripeness
+              : null;
+      final flaggedNonMango = !verdict.isMango;
+      final needsReview = flaggedNonMango || suggestedClass != null;
 
       if (kDebugMode) {
         debugPrint(
             '[Detection #$i] YOLO: ${yoloDet.mangoClass.label} (${yoloDet.confidence.toStringAsFixed(2)}) | '
             'Gemini: is_mango=${verdict.isMango}, ripeness=${verdict.rawRipeness}, reason="${verdict.reason}" | '
-            'Decision: class=${finalClass.label}, kept=true, needsReview=$needsReview');
+            'Decision: YOLO class kept=${yoloDet.mangoClass.label}, '
+            'suggestion=${suggestedClass?.label ?? (flaggedNonMango ? "possible false detection" : "none")}, '
+            'needsReview=$needsReview');
       }
 
-      // Rule C5: Never display a numeric confidence for anything Gemini decided.
-      // Show the real YOLO score; mark Gemini-confirmed boxes with aiVerified = true.
+      // Keep the YOLO count and ripeness. Store Gemini's disagreement separately.
       result.add(yoloDet.copyWith(
-        mangoClass: finalClass,
         aiVerified: true,
-        aiReason: verdict.reason,
+        aiReason: verdict.reason.isEmpty
+            ? (needsReview ? 'Gemini marked this crop uncertain' : null)
+            : flaggedNonMango
+                ? 'Possible non-mango: ${verdict.reason}'
+                : suggestedClass == null
+                    ? verdict.reason
+                    : 'AI suggests ${suggestedClass.displayName}: ${verdict.reason}',
         needsReview: needsReview,
+        aiSuggestedClass: suggestedClass,
+        aiFlaggedNonMango: flaggedNonMango,
       ));
     }
 
@@ -253,6 +231,7 @@ class GeminiAssistantService {
     required List<Detection> detections,
     double candidateMinConf = candidateMinConfDefault,
     double paddingRatio = cropPaddingRatio,
+    int maxCandidates = maxAiCandidatesPerScan,
   }) {
     final decoded = img.decodeImage(fullImageBytes);
     if (decoded == null) return [];
@@ -262,10 +241,16 @@ class GeminiAssistantService {
 
     final List<({int id, Uint8List jpegBytes})> crops = [];
 
-    for (int i = 0; i < detections.length; i++) {
+    final candidates = <int>[
+      for (var i = 0; i < detections.length; i++)
+        if (!detections[i].userEdited &&
+            detections[i].confidence >= candidateMinConf)
+          i,
+    ]..sort(
+        (a, b) => detections[a].confidence.compareTo(detections[b].confidence));
+
+    for (final i in candidates.take(max(0, maxCandidates))) {
       final d = detections[i];
-      if (d.userEdited) continue;
-      if (d.confidence < candidateMinConf) continue;
 
       final double bw = d.x2 - d.x1;
       final double bh = d.y2 - d.y1;
@@ -343,7 +328,9 @@ TASK:
 - Judge ONLY the central proposed object. Do not count nearby fruit or infer fruit hidden by leaves.
 - Return is_mango=false only when the central object is clearly leaf, branch, sky, ground, bag, hand, or another non-fruit object.
 - A centered, partly occluded mango is still a mango. If fruit identity is unclear, keep is_mango=true.
-- Ripeness must be based on visible peel only: unripe = predominantly green; ripe = predominantly yellow/golden; overripe = visible brown decay/wrinkling; unknown = lighting, occlusion, or color makes this unreliable.
+- Ripeness must be based on visible peel only: unripe = predominantly green; ripe = predominantly yellow/golden; overripe = visible brown decay/wrinkling.
+- Bright glare, direct sun, clipped highlights, strong shadows, white balance, and reflections distort peel color. Never call a mango ripe from brightness alone; return unknown whenever lighting may have shifted the observed color.
+- Do not treat a bright yellow highlight or sunlit green peel as reliable ripeness evidence.
 - Do not guess internal maturity. Use unknown when the peel cannot support a reliable stage.
 - Keep reason to 6 words or fewer.
 '''
@@ -468,9 +455,8 @@ TASK:
     }
   }
 
-  /// Reviews every crop exactly once while allowing two independent batches to
-  /// be in flight. Batching remains small so the model can focus on the fruit
-  /// marked in each crop, and verdict reconciliation remains unchanged.
+  /// Reviews crops in bounded batches so the model can focus on each proposed
+  /// fruit and request count stays limited.
   static Future<Map<int, CropVerdict>> verifyCropsInBatches({
     required List<({int id, Uint8List jpegBytes})> crops,
     required String apiKey,
@@ -537,6 +523,7 @@ TASK:
             fullImageBytes: fullImageBytes,
             detections: existingYoloDetections,
             candidateMinConf: candidateMinConf,
+            maxCandidates: maxAiCandidatesPerScan,
           ));
 
       if (crops.isEmpty) {
@@ -548,7 +535,7 @@ TASK:
         );
       }
 
-      // 2. Review all small, unambiguous batches with bounded concurrency.
+      // 2. Review selected crops with bounded concurrency.
       final allVerdicts = await verifyCropsInBatches(
         crops: crops,
         apiKey: geminiApiKey,
@@ -565,7 +552,8 @@ TASK:
       );
 
       final verified = reconciled.where((d) => d.aiVerified).length;
-      final rejected = existingYoloDetections.length - reconciled.length;
+      final flaggedNonMango =
+          reconciled.where((d) => d.aiFlaggedNonMango).length;
       final needsReview = reconciled.where((d) => d.needsReview).length;
 
       final overRipe =
@@ -578,15 +566,15 @@ TASK:
       return AiAssistedDetectionResult(
         reconciledDetections: reconciled,
         providerName: 'Google ${formatModelName(model)}',
-        summary: 'Verified $verified fruit${verified == 1 ? '' : 's'}'
-            '${rejected > 0 ? ', removed $rejected non-mango${rejected == 1 ? '' : 'es'}' : ''}'
-            '${needsReview > 0 ? ', $needsReview need review (?)' : ''}',
+        summary: 'Reviewed $verified YOLO fruit${verified == 1 ? '' : 's'}'
+            '${flaggedNonMango > 0 ? ', $flaggedNonMango possible false detection${flaggedNonMango == 1 ? '' : 's'} to inspect' : ''}'
+            '${needsReview > 0 ? ', $needsReview disagreement${needsReview == 1 ? '' : 's'} to review' : ''}',
         totalCount: reconciled.length,
         overRipeCount: overRipe,
         ripeCount: ripe,
         unripeCount: unripe,
         verifiedCount: verified,
-        rejectedCount: rejected,
+        rejectedCount: 0,
         needsReviewCount: needsReview,
         success: true,
       );

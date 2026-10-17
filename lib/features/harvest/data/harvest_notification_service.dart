@@ -36,8 +36,8 @@ class HarvestNotificationService {
     HarvestForecast forecast,
   ) async {
     await initialize();
-    final android = _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final android = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     final permissionGranted = await android?.requestNotificationsPermission();
     if (permissionGranted == false) return false;
 

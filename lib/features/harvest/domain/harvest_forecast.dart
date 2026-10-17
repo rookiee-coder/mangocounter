@@ -48,7 +48,7 @@ class HarvestForecast {
     // by a text-model estimate. The calendar remains conservative.
     final protectedDays = readiness == HarvestReadiness.harvestNow
         ? 0
-        : daysUntilHarvest.clamp(0, 21) as int;
+        : daysUntilHarvest.clamp(0, 21);
     final nextReadiness = protectedDays == 0
         ? HarvestReadiness.harvestNow
         : protectedDays <= 2
@@ -136,7 +136,7 @@ class HarvestPredictor {
     } else {
       readiness = HarvestReadiness.developing;
       // A mixed tree is planned earlier than an entirely unripe tree.
-      days = (3 + (unripeShare * 4)).round().clamp(3, 7) as int;
+      days = (3 + (unripeShare * 4)).round().clamp(3, 7);
     }
     return HarvestForecast(
       treeId: treeId,

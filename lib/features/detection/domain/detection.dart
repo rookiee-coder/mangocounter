@@ -6,13 +6,15 @@ class Detection {
   final double y1;
   final double x2;
   final double y2;
-  
+
   final MangoClass mangoClass;
   final double confidence;
   final bool userEdited;
   final bool aiVerified;
   final String? aiReason;
   final bool needsReview;
+  final MangoClass? aiSuggestedClass;
+  final bool aiFlaggedNonMango;
 
   const Detection({
     required this.x1,
@@ -25,6 +27,8 @@ class Detection {
     this.aiVerified = false,
     this.aiReason,
     this.needsReview = false,
+    this.aiSuggestedClass,
+    this.aiFlaggedNonMango = false,
   });
 
   Detection copyWith({
@@ -38,6 +42,8 @@ class Detection {
     bool? aiVerified,
     String? aiReason,
     bool? needsReview,
+    MangoClass? aiSuggestedClass,
+    bool? aiFlaggedNonMango,
   }) {
     return Detection(
       x1: x1 ?? this.x1,
@@ -50,6 +56,9 @@ class Detection {
       aiVerified: aiVerified ?? this.aiVerified,
       aiReason: aiReason ?? this.aiReason,
       needsReview: needsReview ?? this.needsReview,
+      aiSuggestedClass:
+          userEdited == true ? null : aiSuggestedClass ?? this.aiSuggestedClass,
+      aiFlaggedNonMango: aiFlaggedNonMango ?? this.aiFlaggedNonMango,
     );
   }
 
@@ -65,6 +74,8 @@ class Detection {
       'aiVerified': aiVerified,
       'aiReason': aiReason,
       'needsReview': needsReview,
+      'aiSuggestedClassIndex': aiSuggestedClass?.index,
+      'aiFlaggedNonMango': aiFlaggedNonMango,
     };
   }
 
@@ -80,6 +91,10 @@ class Detection {
       aiVerified: json['aiVerified'] ?? false,
       aiReason: json['aiReason'],
       needsReview: json['needsReview'] ?? false,
+      aiSuggestedClass: json['aiSuggestedClassIndex'] == null
+          ? null
+          : MangoClass.fromIndex(json['aiSuggestedClassIndex']),
+      aiFlaggedNonMango: json['aiFlaggedNonMango'] ?? false,
     );
   }
 }

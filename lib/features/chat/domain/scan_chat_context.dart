@@ -43,9 +43,11 @@ class ScanChatContext {
     }
     if (actualCount != null && actualCount! > 0) {
       final diff = (totalCount - actualCount!).abs();
-      buffer.writeln('• Ground truth manual count: $actualCount (variance: $diff)');
+      buffer.writeln(
+          '• Ground truth manual count: $actualCount (variance: $diff)');
     }
-    buffer.writeln('• Optical detection confidence: ${(confThreshold * 100).toStringAsFixed(0)}%');
+    buffer.writeln(
+        '• Optical detection confidence: ${(confThreshold * 100).toStringAsFixed(0)}%');
     buffer.writeln('• Model inference time: ${inferenceMs}ms');
     return buffer.toString();
   }

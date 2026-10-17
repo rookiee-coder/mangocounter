@@ -26,9 +26,12 @@ class DetectionResult {
     this.debugString = '',
   });
 
-  int get overRipeCount => detections.where((d) => d.mangoClass == MangoClass.over_ripe).length;
+  int get overRipeCount =>
+      detections.where((d) => d.mangoClass == MangoClass.over_ripe).length;
   int get halfRipeCount => overRipeCount;
-  int get ripeCount => detections.where((d) => d.mangoClass == MangoClass.ripe).length;
-  int get unripeCount => detections.where((d) => d.mangoClass == MangoClass.unripe).length;
+  int get ripeCount =>
+      detections.where((d) => d.mangoClass == MangoClass.ripe).length;
+  int get unripeCount =>
+      detections.where((d) => d.mangoClass == MangoClass.unripe).length;
   int get totalCount => detections.length;
 }

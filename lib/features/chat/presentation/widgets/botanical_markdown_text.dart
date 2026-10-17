@@ -79,7 +79,9 @@ class BotanicalMarkdownText extends StatelessWidget {
         ));
       }
       // Bullet point
-      else if (trimmed.startsWith('•') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      else if (trimmed.startsWith('•') ||
+          trimmed.startsWith('- ') ||
+          trimmed.startsWith('* ')) {
         final content = trimmed.startsWith('•')
             ? trimmed.substring(1).trim()
             : trimmed.substring(2).trim();

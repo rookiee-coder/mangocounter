@@ -104,14 +104,17 @@ class AboutScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: surface,
               borderRadius: AppShapes.leafCut,
-              border: Border.all(color: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
+              border: Border.all(
+                  color:
+                      isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
             ),
             child: Column(
               children: [
                 _buildSpecRow(
                   icon: Icons.flash_on_rounded,
                   title: '1. Instant On-Device Scanner',
-                  detail: 'Finds and counts mangoes directly on your phone in less than a second, even without internet or cell service.',
+                  detail:
+                      'Finds and counts mangoes directly on your phone in less than a second, even without internet or cell service.',
                   primary: primary,
                   text: text,
                   muted: muted,
@@ -120,7 +123,8 @@ class AboutScreen extends StatelessWidget {
                 _buildSpecRow(
                   icon: Icons.auto_awesome,
                   title: '2. Smart Ripeness Check',
-                  detail: 'Checks whether fruits are ripe, unripe, or ready for harvest, and filters out leaves and branches.',
+                  detail:
+                      'Checks whether fruits are ripe, unripe, or ready for harvest, and filters out leaves and branches.',
                   primary: Colors.purple,
                   text: text,
                   muted: muted,
@@ -129,7 +133,8 @@ class AboutScreen extends StatelessWidget {
                 _buildSpecRow(
                   icon: Icons.wb_sunny_outlined,
                   title: '3. Smart Sunlight Adjustment',
-                  detail: 'Automatically adjusts for bright sun, shadows, and tree distance so you get an accurate fruit count.',
+                  detail:
+                      'Automatically adjusts for bright sun, shadows, and tree distance so you get an accurate fruit count.',
                   primary: AppColors.ripeAmber,
                   text: text,
                   muted: muted,
@@ -157,7 +162,9 @@ class AboutScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: surface,
               borderRadius: AppShapes.leafCut,
-              border: Border.all(color: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
+              border: Border.all(
+                  color:
+                      isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,9 +216,12 @@ class AboutScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: text)),
+              Text(title,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14, color: text)),
               const SizedBox(height: 3),
-              Text(detail, style: TextStyle(fontSize: 12, height: 1.4, color: muted)),
+              Text(detail,
+                  style: TextStyle(fontSize: 12, height: 1.4, color: muted)),
             ],
           ),
         ),
@@ -223,7 +233,9 @@ class AboutScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: text)),
+        Text(title,
+            style: TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 13, color: text)),
         const SizedBox(height: 2),
         Text(desc, style: TextStyle(fontSize: 12, height: 1.35, color: muted)),
       ],

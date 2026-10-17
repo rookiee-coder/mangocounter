@@ -29,7 +29,8 @@ class HarvestReminderStore {
   Future<void> save(Map<String, HarvestReminder> reminders) {
     return _preferences.setString(
       _storageKey,
-      jsonEncode(reminders.values.map((reminder) => reminder.toJson()).toList()),
+      jsonEncode(
+          reminders.values.map((reminder) => reminder.toJson()).toList()),
     );
   }
 }

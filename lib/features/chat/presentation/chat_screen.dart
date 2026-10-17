@@ -86,7 +86,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     // Auto-scroll when messages change or loading state toggles
     ref.listen(chatControllerProvider, (prev, next) {
-      if (prev?.messages.length != next.messages.length || prev?.isLoading != next.isLoading) {
+      if (prev?.messages.length != next.messages.length ||
+          prev?.isLoading != next.isLoading) {
         _scrollToBottom();
       }
     });
@@ -103,7 +104,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 color: primary.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.psychology_alt_rounded, color: primary, size: 22),
+              child:
+                  Icon(Icons.psychology_alt_rounded, color: primary, size: 22),
             ),
             const SizedBox(width: 10),
             Column(
@@ -140,14 +142,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             onPressed: () {
               ref.read(chatControllerProvider.notifier).clearChat();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chat session restarted ✨'), duration: Duration(seconds: 1)),
+                const SnackBar(
+                    content: Text('Chat session restarted ✨'),
+                    duration: Duration(seconds: 1)),
               );
             },
           ),
           IconButton(
             icon: const Icon(Icons.help_outline_rounded),
             tooltip: 'What I Can Help With',
-            onPressed: () => _showCapabilitiesDialog(context, primary, text, surface),
+            onPressed: () =>
+                _showCapabilitiesDialog(context, primary, text, surface),
           ),
           const SizedBox(width: 4),
         ],
@@ -173,10 +178,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: ListView.builder(
                 controller: _scrollCtrl,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                itemCount: chatState.messages.length + (chatState.isLoading ? 1 : 0),
+                itemCount:
+                    chatState.messages.length + (chatState.isLoading ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == chatState.messages.length && chatState.isLoading) {
-                    return _buildTypingIndicator(primary, surface, muted, isDark);
+                  if (index == chatState.messages.length &&
+                      chatState.isLoading) {
+                    return _buildTypingIndicator(
+                        primary, surface, muted, isDark);
                   }
 
                   final msg = chatState.messages[index];
@@ -206,7 +214,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   itemBuilder: (context, index) {
                     final suggestion = chatState.suggestedPrompts[index];
                     return ActionChip(
-                      avatar: Icon(Icons.auto_awesome, size: 13, color: primary),
+                      avatar:
+                          Icon(Icons.auto_awesome, size: 13, color: primary),
                       label: Text(
                         suggestion,
                         style: TextStyle(
@@ -233,7 +242,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 color: surface,
                 border: Border(
                   top: BorderSide(
-                    color: isDark ? AppColors.darkOutline : const Color(0x1F1F5D3F),
+                    color: isDark
+                        ? AppColors.darkOutline
+                        : const Color(0x1F1F5D3F),
                   ),
                 ),
                 boxShadow: [
@@ -249,7 +260,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF14241B) : const Color(0xFFF3FAF5),
+                        color: isDark
+                            ? const Color(0xFF14241B)
+                            : const Color(0xFFF3FAF5),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                           color: primary.withOpacity(0.25),
@@ -263,11 +276,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         keyboardType: TextInputType.text,
                         style: TextStyle(fontSize: 13.5, color: text),
                         decoration: InputDecoration(
-                          hintText: 'Ask about harvest timing, fruit health, pests...',
+                          hintText:
+                              'Ask about harvest timing, fruit health, pests...',
                           hintStyle: TextStyle(fontSize: 12.5, color: muted),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 10),
                         ),
                         onSubmitted: (_) => _handleSend(),
                       ),
@@ -289,7 +304,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ],
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      icon: const Icon(Icons.send_rounded,
+                          color: Colors.white, size: 18),
                       tooltip: 'Send Message',
                       onPressed: chatState.isLoading ? null : _handleSend,
                     ),
@@ -323,7 +339,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       child: Column(
         children: [
           InkWell(
-            onTap: () => setState(() => _isContextExpanded = !_isContextExpanded),
+            onTap: () =>
+                setState(() => _isContextExpanded = !_isContextExpanded),
             borderRadius: BorderRadius.circular(14),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -368,7 +385,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                             const Spacer(),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1.5),
                               decoration: BoxDecoration(
                                 color: primary.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
@@ -387,12 +405,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            Text('Ripe: ${ctx.ripeCount}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: amber)),
+                            Text('Ripe: ${ctx.ripeCount}',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: amber)),
                             const SizedBox(width: 8),
-                            Text('Unripe: ${ctx.unripeCount}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.unripeGreen)),
+                            Text('Unripe: ${ctx.unripeCount}',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.unripeGreen)),
                             if (ctx.overRipeCount > 0) ...[
                               const SizedBox(width: 8),
-                              Text('Over: ${ctx.overRipeCount}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.overRipeEarth)),
+                              Text('Over: ${ctx.overRipeCount}',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.overRipeEarth)),
                             ],
                           ],
                         ),
@@ -401,7 +431,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                   const SizedBox(width: 6),
                   Icon(
-                    _isContextExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    _isContextExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     size: 18,
                     color: muted,
                   ),
@@ -425,13 +457,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     children: [
                       Text(
                         'Sensitivity: ${(ctx.confThreshold * 100).toStringAsFixed(0)}% · Speed: ${ctx.inferenceMs}ms',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: muted),
+                        style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            color: muted),
                       ),
                       if (ctx.aiVerifiedCount > 0) ...[
                         const Spacer(),
                         Text(
                           '✨ ${ctx.aiVerifiedCount} Checked',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.purple.shade700),
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple.shade700),
                         ),
                       ],
                     ],
@@ -464,7 +502,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Flexible(
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 320),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: primary,
                   borderRadius: const BorderRadius.only(
@@ -563,7 +602,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: message.text));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Copied advice to clipboard 📋'), duration: Duration(seconds: 1)),
+                            const SnackBar(
+                                content: Text('Copied advice to clipboard 📋'),
+                                duration: Duration(seconds: 1)),
                           );
                         },
                       ),
@@ -588,7 +629,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildTypingIndicator(Color primary, Color surface, Color muted, bool isDark) {
+  Widget _buildTypingIndicator(
+      Color primary, Color surface, Color muted, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -615,7 +657,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 SizedBox(
                   width: 14,
                   height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: primary),
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: primary),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -635,7 +678,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _showCapabilitiesDialog(BuildContext context, Color primary, Color text, Color surface) {
+  void _showCapabilitiesDialog(
+      BuildContext context, Color primary, Color text, Color surface) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -645,21 +689,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           children: [
             Icon(Icons.psychology_alt_rounded, color: primary, size: 24),
             const SizedBox(width: 10),
-            Text('How Your Assistant Can Help', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: text)),
+            Text('How Your Assistant Can Help',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold, color: text)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildCapabilityItem(Icons.calendar_month_outlined, 'Harvest Timing', 'Estimates best picking dates and sweetness windows for your fruit harvest.'),
-            _buildCapabilityItem(Icons.bug_report_outlined, 'Pest & Fruit Care', 'Provides solutions for fruit flies, spots, tree health, and fruit protection.'),
-            _buildCapabilityItem(Icons.water_drop_outlined, 'Water & Plant Food', 'Recommends watering schedules and nutrition for sweeter, healthier fruits.'),
-            _buildCapabilityItem(Icons.camera_alt_outlined, 'Tree Photo Analysis', 'Inspects your tree photo to give specific advice for your orchard.'),
+            _buildCapabilityItem(
+                Icons.calendar_month_outlined,
+                'Harvest Timing',
+                'Estimates best picking dates and sweetness windows for your fruit harvest.'),
+            _buildCapabilityItem(Icons.bug_report_outlined, 'Pest & Fruit Care',
+                'Provides solutions for fruit flies, spots, tree health, and fruit protection.'),
+            _buildCapabilityItem(
+                Icons.water_drop_outlined,
+                'Water & Plant Food',
+                'Recommends watering schedules and nutrition for sweeter, healthier fruits.'),
+            _buildCapabilityItem(
+                Icons.camera_alt_outlined,
+                'Tree Photo Analysis',
+                'Inspects your tree photo to give specific advice for your orchard.'),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('GOT IT')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('GOT IT')),
         ],
       ),
     );
@@ -677,8 +734,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                Text(desc, style: const TextStyle(fontSize: 11.5, color: AppColors.mutedGraphite, height: 1.25)),
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 12.5)),
+                Text(desc,
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.mutedGraphite,
+                        height: 1.25)),
               ],
             ),
           ),
