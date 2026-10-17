@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
-import 'features/detection/presentation/home_screen.dart';
+import 'presentation/app_shell.dart';
 
 class MangoCountApp extends StatelessWidget {
   const MangoCountApp({super.key});
@@ -14,7 +14,7 @@ class MangoCountApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.lightTheme,
       themeMode: ThemeMode.light,
-      home: const HomeScreen(),
+      home: const AppShell(),
     );
   }
 }

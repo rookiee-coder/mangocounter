@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image/image.dart' as img;
 import 'package:mangocounter/features/detection/data/gemini_assistant_service.dart';
 import 'package:mangocounter/features/detection/domain/detection.dart';
 import 'package:mangocounter/features/detection/domain/mango_class.dart';
@@ -94,6 +95,87 @@ void main() {
   });
 
   group('Gemini crop verification request', () {
+    test('upscales small fruit crops for reliable visual review', () {
+      final source = img.Image(width: 100, height: 100);
+      final crops = GeminiAssistantService.extractCrops(
+        fullImageBytes: Uint8List.fromList(img.encodeJpg(source)),
+        detections: const [
+          Detection(
+            x1: 40,
+            y1: 40,
+            x2: 50,
+            y2: 50,
+            mangoClass: MangoClass.unripe,
+            confidence: 0.8,
+          ),
+        ],
+      );
+
+      final decoded = img.decodeImage(crops.single.jpegBytes)!;
+      expect(decoded.width, GeminiAssistantService.minimumAiCropDimension);
+      expect(decoded.height, GeminiAssistantService.minimumAiCropDimension);
+    });
+
+    test('reviews crop batches concurrently without dropping a verdict',
+        () async {
+      var activeRequests = 0;
+      var peakRequests = 0;
+      final client = MockClient((request) async {
+        activeRequests++;
+        peakRequests =
+            peakRequests < activeRequests ? activeRequests : peakRequests;
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+        activeRequests--;
+
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        final parts = ((body['contents'] as List).single
+            as Map<String, dynamic>)['parts'] as List;
+        final ids = parts
+            .whereType<Map<String, dynamic>>()
+            .map((part) => part['text'])
+            .whereType<String>()
+            .where((text) => text.startsWith('Crop #'))
+            .map((text) => int.parse(text.substring(6, text.length - 1)))
+            .toList();
+        final results = ids
+            .map((id) => {
+                  'id': id,
+                  'is_mango': true,
+                  'ripeness': 'unknown',
+                  'reason': 'Test crop',
+                })
+            .toList();
+        return http.Response(
+          jsonEncode({
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {
+                      'text': jsonEncode({'results': results})
+                    }
+                  ]
+                }
+              }
+            ]
+          }),
+          200,
+        );
+      });
+
+      final verdicts = await GeminiAssistantService.verifyCropsInBatches(
+        crops: List.generate(
+          9,
+          (id) => (id: id, jpegBytes: Uint8List.fromList([id])),
+        ),
+        apiKey: 'test-key',
+        client: client,
+      );
+
+      expect(verdicts.keys, containsAll(List.generate(9, (id) => id)));
+      expect(peakRequests, GeminiAssistantService.maxConcurrentBatches);
+    });
+
     test('uses the current structured-output contract and header API key',
         () async {
       late http.Request observedRequest;
@@ -143,7 +225,8 @@ void main() {
 
       expect(observedRequest.url.queryParameters.containsKey('key'), isFalse);
       expect(observedRequest.headers['x-goog-api-key'], 'test-key');
-      expect(generationConfig, contains('responseFormat'));
+      expect(generationConfig['responseMimeType'], 'application/json');
+      expect(generationConfig, contains('responseSchema'));
       expect(generationConfig, isNot(contains('temperature')));
       expect(inlineData['mimeType'], 'image/jpeg');
       expect(inlineData, isNot(contains('mime_type')));

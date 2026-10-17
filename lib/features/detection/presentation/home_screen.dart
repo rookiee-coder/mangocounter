@@ -19,9 +19,14 @@ import '../../video_scan/presentation/video_result_screen.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../orchard/presentation/orchard_dashboard.dart';
 import '../../history/domain/scan_record.dart';
+import '../../harvest/presentation/harvest_planner_screen.dart';
+import 'home_scan_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  final HomeScanController? scanController;
+  final VoidCallback? onOpenHarvest;
+
+  const HomeScreen({super.key, this.scanController, this.onOpenHarvest});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -42,6 +47,124 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     if (mounted) setState(() => _activeTreeIds = treeIds);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scanController?.attach(_showQuickScan);
+  }
+
+  @override
+  void dispose() {
+    widget.scanController?.detach();
+    super.dispose();
+  }
+
+  void _showQuickScan() {
+    final treeIds = _activeTreeIds.toList()..sort();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Start a tree scan',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Choose the orchard tree first so the count and harvest forecast stay linked.',
+              ),
+              const SizedBox(height: 16),
+              if (treeIds.isEmpty)
+                const Text('Add a tree in the orchard layout before scanning.')
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final treeId in treeIds)
+                      ActionChip(
+                        avatar: const Icon(Icons.park_outlined, size: 17),
+                        label: Text(_treeLabel(treeId)),
+                        onPressed: () {
+                          setState(() => _selectedTreeId = treeId);
+                          Navigator.pop(sheetContext);
+                          _showScanTypeSheet(treeId);
+                        },
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _treeLabel(String treeId) {
+    final match = RegExp(r'^lane_(\d+)_tree_(\d+)$').firstMatch(treeId);
+    return match == null
+        ? treeId
+        : 'Lane ${match.group(1)} · Tree ${match.group(2)}';
+  }
+
+  void _showScanTypeSheet(String treeId) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Take photo'),
+                subtitle: const Text('Fast count and ripeness check'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickImage(ImageSource.camera, treeId: treeId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Use photo from gallery'),
+                subtitle: const Text('Analyze a saved orchard photo'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickImage(ImageSource.gallery, treeId: treeId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.videocam_outlined),
+                title: const Text('Whole-tree video scan'),
+                subtitle: const Text('Sweep the canopy to avoid duplicate counts'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showVideoSourceDialog(context, treeId: treeId);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _pickImage(ImageSource source, {required String treeId}) async {
@@ -801,6 +924,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   onTreeSelected: (tree) => _openTreeDetails(tree, const []),
                   onActiveTreeIdsChanged: _updateActiveTreeIds,
                 ),
+              ),
+
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: widget.onOpenHarvest ??
+                    () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const HarvestPlannerScreen(),
+                          ),
+                        ),
+                icon: const Icon(Icons.calendar_month_outlined),
+                label: const Text('Harvest calendar & reminders'),
               ),
 
               // Orchard Summary Card (History metrics)

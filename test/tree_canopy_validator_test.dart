@@ -156,7 +156,9 @@ void main() {
           jsonDecode(observedRequest.body) as Map<String, dynamic>;
       expect(observedRequest.url.queryParameters.containsKey('key'), isFalse);
       expect(observedRequest.headers['x-goog-api-key'], 'test-key');
-      expect(requestBody['generationConfig'], contains('responseFormat'));
+      expect(requestBody['generationConfig']['responseMimeType'],
+          'application/json');
+      expect(requestBody['generationConfig'], contains('responseSchema'));
       expect(requestBody['generationConfig'], isNot(contains('temperature')));
     });
 

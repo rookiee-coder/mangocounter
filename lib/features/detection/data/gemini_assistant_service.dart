@@ -120,8 +120,13 @@ class GeminiAssistantService {
   static const double highConfKeepDefault = 0.50;
   static const double yoloClassKeepConfDefault = 0.60;
   static const int maxCropsPerBatch = 4;
+  // Two simultaneous requests reduce multi-fruit wait time without increasing
+  // the number of crops reviewed or overwhelming typical Gemini free quotas.
+  static const int maxConcurrentBatches = 2;
   static const Duration apiTimeout = Duration(seconds: 8);
   static const double cropPaddingRatio = 0.20;
+  static const int minimumAiCropDimension = 192;
+  static const int maximumAiCropDimension = 384;
 
   static const String defaultApiKey =
       String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
@@ -280,15 +285,30 @@ class GeminiAssistantService {
 
       final crop =
           img.copyCrop(oriented, x: x1, y: y1, width: cropW, height: cropH);
-      // Preserve peel texture and small blemishes for ripeness review.
+      // Gemini receives a consistent visual scale. Small distant fruit would
+      // otherwise arrive as a tiny crop, where peel color and texture cannot
+      // be reviewed reliably. This keeps the aspect ratio and context intact.
       img.Image toSend = crop;
-      if (max(cropW, cropH) > 384) {
+      final longestEdge = max(cropW, cropH);
+      if (longestEdge < minimumAiCropDimension) {
         if (cropW >= cropH) {
           toSend = img.copyResize(crop,
-              width: 384, interpolation: img.Interpolation.linear);
+              width: minimumAiCropDimension,
+              interpolation: img.Interpolation.linear);
         } else {
           toSend = img.copyResize(crop,
-              height: 384, interpolation: img.Interpolation.linear);
+              height: minimumAiCropDimension,
+              interpolation: img.Interpolation.linear);
+        }
+      } else if (longestEdge > maximumAiCropDimension) {
+        if (cropW >= cropH) {
+          toSend = img.copyResize(crop,
+              width: maximumAiCropDimension,
+              interpolation: img.Interpolation.linear);
+        } else {
+          toSend = img.copyResize(crop,
+              height: maximumAiCropDimension,
+              interpolation: img.Interpolation.linear);
         }
       }
 
@@ -345,32 +365,28 @@ TASK:
         {"parts": parts}
       ],
       "generationConfig": {
-        "responseFormat": {
-          "text": {
-            "mimeType": "application/json",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "results": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {"type": "integer"},
-                      "is_mango": {"type": "boolean"},
-                      "ripeness": {
-                        "type": "string",
-                        "enum": ["unripe", "ripe", "overripe", "unknown"]
-                      },
-                      "reason": {"type": "string"}
-                    },
-                    "required": ["id", "is_mango", "ripeness", "reason"]
-                  }
-                }
-              },
-              "required": ["results"]
+        "responseMimeType": "application/json",
+        "responseSchema": {
+          "type": "OBJECT",
+          "properties": {
+            "results": {
+              "type": "ARRAY",
+              "items": {
+                "type": "OBJECT",
+                "properties": {
+                  "id": {"type": "INTEGER"},
+                  "is_mango": {"type": "BOOLEAN"},
+                  "ripeness": {
+                    "type": "STRING",
+                    "enum": ["unripe", "ripe", "overripe", "unknown"]
+                  },
+                  "reason": {"type": "STRING"}
+                },
+                "required": ["id", "is_mango", "ripeness", "reason"]
+              }
             }
-          }
+          },
+          "required": ["results"]
         }
       }
     });
@@ -452,6 +468,47 @@ TASK:
     }
   }
 
+  /// Reviews every crop exactly once while allowing two independent batches to
+  /// be in flight. Batching remains small so the model can focus on the fruit
+  /// marked in each crop, and verdict reconciliation remains unchanged.
+  static Future<Map<int, CropVerdict>> verifyCropsInBatches({
+    required List<({int id, Uint8List jpegBytes})> crops,
+    required String apiKey,
+    String model = geminiModel,
+    http.Client? client,
+  }) async {
+    final allVerdicts = <int, CropVerdict>{};
+
+    for (int start = 0;
+        start < crops.length;
+        start += maxCropsPerBatch * maxConcurrentBatches) {
+      final windowEnd = min(
+        start + maxCropsPerBatch * maxConcurrentBatches,
+        crops.length,
+      );
+      final window = crops.sublist(start, windowEnd);
+      final futures = <Future<Map<int, CropVerdict>>>[];
+
+      for (int batchStart = 0;
+          batchStart < window.length;
+          batchStart += maxCropsPerBatch) {
+        final batchEnd = min(batchStart + maxCropsPerBatch, window.length);
+        futures.add(verifyCropsBatch(
+          crops: window.sublist(batchStart, batchEnd),
+          apiKey: apiKey,
+          model: model,
+          client: client,
+        ));
+      }
+
+      for (final verdicts in await Future.wait(futures)) {
+        allVerdicts.addAll(verdicts);
+      }
+    }
+
+    return allVerdicts;
+  }
+
   /// High-level method: extracts crops, batches them, queries Gemini, and reconciles verdicts.
   /// Fully defensive: on any network or parsing failure, falls back to original YOLO detections.
   static Future<AiAssistedDetectionResult> assistDetectionAndCount({
@@ -491,20 +548,13 @@ TASK:
         );
       }
 
-      // 2. Batch crops. Small batches keep each central fruit unambiguous.
-      final Map<int, CropVerdict> allVerdicts = {};
-
-      for (int i = 0; i < crops.length; i += maxCropsPerBatch) {
-        final end = min(i + maxCropsPerBatch, crops.length);
-        final batch = crops.sublist(i, end);
-        final batchVerdicts = await verifyCropsBatch(
-          crops: batch,
-          apiKey: geminiApiKey,
-          model: model,
-          client: client,
-        );
-        allVerdicts.addAll(batchVerdicts);
-      }
+      // 2. Review all small, unambiguous batches with bounded concurrency.
+      final allVerdicts = await verifyCropsInBatches(
+        crops: crops,
+        apiKey: geminiApiKey,
+        model: model,
+        client: client,
+      );
 
       // 3. Central reconciliation
       final reconciled = reconcileCropVerdicts(

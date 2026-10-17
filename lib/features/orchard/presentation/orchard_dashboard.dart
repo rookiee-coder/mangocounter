@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../chat/domain/scan_chat_context.dart';
+import '../../chat/presentation/chat_screen.dart';
 import '../../history/domain/scan_record.dart';
 
 class OrchardTreeRef {
@@ -1180,7 +1182,8 @@ class OrchardTreeDetailsSheet extends StatelessWidget {
     final scan = latestScan;
     final text = Theme.of(context).colorScheme.onSurface;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1363,8 +1366,40 @@ class OrchardTreeDetailsSheet extends StatelessWidget {
               icon: const Icon(Icons.photo_library_outlined),
               label: const Text('Choose tree photo from gallery'),
             ),
+            if (scan != null) ...[
+              const Divider(height: 26),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final scanContext = ScanChatContext(
+                    totalCount: scan.currentTotal,
+                    ripeCount: scan.currentRipe,
+                    unripeCount: scan.currentUnripe,
+                    overRipeCount: scan.currentOverRipe,
+                    inferenceMs: scan.inferenceMs,
+                    confThreshold: scan.confThreshold,
+                    actualCount: scan.actualCount,
+                  );
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        scanContext: scanContext,
+                        initialQuestion: '''
+Please review ${tree.label}. Its latest scan found ${scan.currentTotal} mangoes: ${scan.currentRipe} ripe, ${scan.currentUnripe} unripe, and ${scan.currentOverRipe} overripe. Give a concise, tree-specific field plan for harvest timing and the next action.
+''',
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.auto_awesome_rounded),
+                label: const Text('Ask AI about this tree'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+              ),
+            ],
           ],
         ),
+      ),
       ),
     );
   }

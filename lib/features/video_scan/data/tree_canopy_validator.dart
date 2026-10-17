@@ -203,20 +203,16 @@ CRITICAL RULES:
         {"parts": parts}
       ],
       "generationConfig": {
-        "responseFormat": {
-          "text": {
-            "mimeType": "application/json",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "is_mango_tree": {"type": "boolean"},
-                "confidence": {"type": "number"},
-                "detected_subject": {"type": "string"},
-                "reason": {"type": "string"}
-              },
-              "required": ["is_mango_tree", "detected_subject", "reason"]
-            }
-          }
+        "responseMimeType": "application/json",
+        "responseSchema": {
+          "type": "OBJECT",
+          "properties": {
+            "is_mango_tree": {"type": "BOOLEAN"},
+            "confidence": {"type": "NUMBER"},
+            "detected_subject": {"type": "STRING"},
+            "reason": {"type": "STRING"}
+          },
+          "required": ["is_mango_tree", "detected_subject", "reason"]
         }
       }
     });
